@@ -72,7 +72,6 @@ func HandleInstagram(b *gotgbot.Bot, ctx *ext.Context) error {
                     ParseMode: "HTML",
                 })
             }
-            caption = ""
         }
 
         sentMessages, err := b.SendMediaGroup(dbChannelID, channelMedia, nil)
@@ -118,7 +117,6 @@ func HandleInstagram(b *gotgbot.Bot, ctx *ext.Context) error {
                 ParseMode: "HTML",
             })
         }
-        caption = ""
     }
 
     _, err = b.SendMediaGroup(ctx.EffectiveChat.Id, media, &gotgbot.SendMediaGroupOpts{
