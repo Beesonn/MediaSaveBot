@@ -32,6 +32,7 @@ func main() {
     
     updater := ext.NewUpdater(dispatcher, nil)
     dispatcher.AddHandler(handlers.NewCommand("start", bot.Start))
+    dispatcher.AddHandler(handlers.NewCommand("broadcast", bot.Broadcast))
 
     err = updater.StartPolling(b, &ext.PollingOpts{
         DropPendingUpdates: true,
