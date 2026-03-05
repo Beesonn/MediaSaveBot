@@ -9,12 +9,17 @@ import (
     "github.com/PaulSonOfLars/gotgbot/v2/ext"
     "github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
     "github.com/Beesonn/MediaSaveBot/bot"
+    "github.com/Beesonn/MediaSaveBot/database"
 )
 
 func main() {
     token := os.Getenv("TOKEN")
     if token == "" {
         panic("TOKEN environment variable is empty")
+    }
+
+    if err := database.InitDB(); err != nil {
+        log.Printf("Warning: Database initialization failed: %v", err)
     }
 
     b, err := gotgbot.NewBot(token, nil)
@@ -32,7 +37,10 @@ func main() {
     
     updater := ext.NewUpdater(dispatcher, nil)
     dispatcher.AddHandler(handlers.NewCommand("start", bot.Start))
+    dispatcher.AddHandler(handlers.NewCommand("stats", bot.Stats))
     dispatcher.AddHandler(handlers.NewCommand("broadcast", bot.Broadcast))
+    dispatcher.AddHandler(handlers.NewCallback("stop_broadcast", bot.HandleStopBroadcast))
+    dispatcher.AddHandler(handlers.NewMessage(nil, bot.HandleMessage))
 
     err = updater.StartPolling(b, &ext.PollingOpts{
         DropPendingUpdates: true,
