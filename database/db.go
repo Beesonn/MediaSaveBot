@@ -13,7 +13,7 @@ import (
 )
 
 var (
-    mongoClient *mongo.Client
+    mongoClient    *mongo.Client
     userCollection *mongo.Collection
 )
 
@@ -24,6 +24,16 @@ type User struct {
     Username  string    `bson:"username"`
     ChatID    int64     `bson:"chat_id"`
     JoinedAt  time.Time `bson:"joined_at"`
+}
+
+type Media struct {
+    PostID    string    `bson:"post_id"`
+    Platform  string    `bson:"platform"`
+    FileIDs   []string  `bson:"file_ids"`
+    Caption   string    `bson:"caption"`
+    Username  string    `bson:"username"`
+    MediaType string    `bson:"media_type"`
+    CreatedAt time.Time `bson:"created_at"`
 }
 
 func InitDB() error {
@@ -90,7 +100,7 @@ func GetUser(ctx context.Context, userID int64) (*User, error) {
 
     if err != nil {
         if err == mongo.ErrNoDocuments {
-            return nil, nil // User not found
+            return nil, nil
         }
         return nil, fmt.Errorf("error getting user: %v", err)
     }
@@ -126,6 +136,50 @@ func GetAllUsers(ctx context.Context) ([]User, error) {
     }
 
     return users, nil
+}
+
+func SaveMedia(ctx context.Context, media *Media) error {
+    if mongoClient == nil {
+        if err := InitDB(); err != nil {
+            return fmt.Errorf("failed to initialize database: %v", err)
+        }
+    }
+
+    collection := mongoClient.Database("media_save_bot").Collection("media")
+    
+    filter := bson.M{"post_id": media.PostID, "platform": media.Platform}
+    update := bson.M{"$set": media}
+    opts := options.Update().SetUpsert(true)
+
+    _, err := collection.UpdateOne(ctx, filter, update, opts)
+    if err != nil {
+        return fmt.Errorf("error saving media: %v", err)
+    }
+
+    log.Printf("Media %s saved successfully", media.PostID)
+    return nil
+}
+
+func GetMedia(ctx context.Context, platform, postID string) (*Media, error) {
+    if mongoClient == nil {
+        if err := InitDB(); err != nil {
+            return nil, fmt.Errorf("failed to initialize database: %v", err)
+        }
+    }
+
+    var media Media
+    collection := mongoClient.Database("media_save_bot").Collection("media")
+    filter := bson.M{"post_id": postID, "platform": platform}
+    
+    err := collection.FindOne(ctx, filter).Decode(&media)
+    if err != nil {
+        if err == mongo.ErrNoDocuments {
+            return nil, nil
+        }
+        return nil, fmt.Errorf("error getting media: %v", err)
+    }
+
+    return &media, nil
 }
 
 func CloseDB() error {
