@@ -15,12 +15,14 @@ func Start(b *gotgbot.Bot, ctx *ext.Context) error {
     user := ctx.EffectiveUser
     chat := ctx.EffectiveChat
     
+    name := user.FirstName
+    if user.LastName != "" {
+        name = name + " " + user.LastName
+    }
+    
     dbUser := &database.User{
-        UserID:    user.Id,
-        FirstName: user.FirstName,
-        LastName:  user.LastName,
-        Username:  user.Username,
-        ChatID:    chat.Id,
+        UserID:   user.Id,
+        Name:     name,
     }
     
     if err := database.SaveUser(context.Background(), dbUser); err != nil {
