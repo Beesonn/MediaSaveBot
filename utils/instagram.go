@@ -2,7 +2,6 @@ package utils
 
 import (
     "fmt"
-    "log"
     "strings"
     "time"
     "context"
@@ -58,7 +57,7 @@ func HandleInstagram(b *gotgbot.Bot, ctx *ext.Context) error {
     if postID != "" && dbChannelID != 0 {
         channelMedia := make([]gotgbot.InputMedia, 0)
         
-        for i, source := range stream.Source {
+        for _, source := range stream.Source {
             if source.Type == "video" {
                 channelMedia = append(channelMedia, gotgbot.InputMediaVideo{
                     Media:     gotgbot.InputFileByURL(source.URL),
@@ -103,7 +102,7 @@ func HandleInstagram(b *gotgbot.Bot, ctx *ext.Context) error {
 
     media := make([]gotgbot.InputMedia, 0)
 
-    for i, source := range stream.Source {
+    for _, source := range stream.Source {
         if source.Type == "video" {
             media = append(media, gotgbot.InputMediaVideo{
                 Media:     gotgbot.InputFileByURL(source.URL),
@@ -133,8 +132,8 @@ func sendCachedInstagram(b *gotgbot.Bot, ctx *ext.Context, cachedMedia *database
 
     media := make([]gotgbot.InputMedia, 0)
 
-    for i, fileID := range cachedMedia.FileIDs {
-        if cachedMedia.MediaType == "video" && i == 0 {
+    for _, fileID := range cachedMedia.FileIDs {
+        if cachedMedia.MediaType == "video" {
             media = append(media, gotgbot.InputMediaVideo{
                 Media:     gotgbot.InputFileByID(fileID),
                 Caption:   cachedMedia.Caption,
