@@ -86,7 +86,7 @@ func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
     success := 0
     failed := 0
 
-    stopButton := &gotgbot.InlineKeyboardMarkup{
+    stopButton := gotgbot.InlineKeyboardMarkup{
         InlineKeyboard: [][]gotgbot.InlineKeyboardButton{{
             {Text: "🛑 Stop Broadcast", CallbackData: "stop_broadcast"},
         }},
@@ -130,7 +130,7 @@ func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
                     percentage, i+1, total, success, failed,
                 )
                 
-                _, err := statusMsg.EditText(b, progressText, &gotgbot.EditMessageTextOpts{
+                _, _,  err := statusMsg.EditText(b, progressText, &gotgbot.EditMessageTextOpts{
                     ReplyMarkup: stopButton,
                 })
                 if err != nil {
