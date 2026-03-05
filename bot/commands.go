@@ -39,8 +39,8 @@ func Start(b *gotgbot.Bot, ctx *ext.Context) error {
         "Just send me a link and I'll download it for you!"
 
     keyboard := [][]gotgbot.InlineKeyboardButton{{
-        {Text: "👥 Support Group", Url: "https://t.me/Beesonn_support"},
-        {Text: "📢 Support Channel", Url: "https://t.me/Beesonn_channel"},
+        {Text: "👥 Support Group", Url: "https://t.me/XBOTSUPPORTS"},
+        {Text: "📢 Update Channel", Url: "https://t.me/BeesonsBots"},
     }}
 
     replyMarkup := &gotgbot.InlineKeyboardMarkup{
