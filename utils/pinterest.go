@@ -39,12 +39,12 @@ func HandlePinterest(b *gotgbot.Bot, ctx *ext.Context) error {
         if source.Type == "video" {
             media = append(media, gotgbot.InputMediaVideo{
                 Media: gotgbot.InputFileByURL(source.URL),
-                Caption: source.Title,
+                Caption: stream.Title,
             })
         } else {
             media = append(media, gotgbot.InputMediaPhoto{
                 Media: gotgbot.InputFileByURL(source.URL),
-                Caption: source.Title,
+                Caption: stream.Title,
             })
         }
     }
