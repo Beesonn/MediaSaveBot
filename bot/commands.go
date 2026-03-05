@@ -1,9 +1,8 @@
 package bot
 
 import (
-    "fmt"
-    "context"
     "log"
+    "context"
 
     "github.com/Beesonn/MediaSaveBot/database"
     "github.com/PaulSonOfLars/gotgbot/v2"
