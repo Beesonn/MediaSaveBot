@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-    token := os.Getenv("TOKEN")
+    token := os.Getenv("BOT_TOKEN")
     if token == "" {
         panic("TOKEN environment variable is empty")
     }
