@@ -123,7 +123,6 @@ func HandlePinterest(b *gotgbot.Bot, ctx *ext.Context) error {
                 ParseMode: "HTML",
             })
         }
-        caption = ""
     }
 
     _, err = b.SendMediaGroup(ctx.EffectiveChat.Id, media, &gotgbot.SendMediaGroupOpts{
@@ -153,8 +152,7 @@ func sendCachedPinterest(b *gotgbot.Bot, ctx *ext.Context, cachedMedia *database
                 Caption:   cachedMedia.Caption,
                 ParseMode: "HTML",
             })
-        }
-        caption = ""
+        }        
     }
 
     _, err := b.SendMediaGroup(ctx.EffectiveChat.Id, media, &gotgbot.SendMediaGroupOpts{
