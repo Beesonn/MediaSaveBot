@@ -19,10 +19,7 @@ var (
 
 type User struct {
     UserID    int64     `bson:"user_id"`
-    FirstName string    `bson:"first_name"`
-    LastName  string    `bson:"last_name"`
-    Username  string    `bson:"username"`
-    ChatID    int64     `bson:"chat_id"`
+    Name      string    `bson:"name"`
     JoinedAt  time.Time `bson:"joined_at"`
 }
 
@@ -136,6 +133,21 @@ func GetAllUsers(ctx context.Context) ([]User, error) {
     }
 
     return users, nil
+}
+
+func GetUserCount(ctx context.Context) (int64, error) {
+    if mongoClient == nil {
+        if err := InitDB(); err != nil {
+            return 0, fmt.Errorf("failed to initialize database: %v", err)
+        }
+    }
+
+    count, err := userCollection.CountDocuments(ctx, bson.M{})
+    if err != nil {
+        return 0, fmt.Errorf("error counting users: %v", err)
+    }
+
+    return count, nil
 }
 
 func SaveMedia(ctx context.Context, media *Media) error {
