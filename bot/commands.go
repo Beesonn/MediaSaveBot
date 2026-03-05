@@ -3,8 +3,10 @@ package bot
 import (
     "log"
     "context"
+    "regexp"
 
     "github.com/Beesonn/MediaSaveBot/database"
+    "github.com/Beesonn/MediaSaveBot/utils"
     "github.com/PaulSonOfLars/gotgbot/v2"
     "github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
@@ -36,8 +38,8 @@ func Start(b *gotgbot.Bot, ctx *ext.Context) error {
         "Just send me a link and I'll download it for you!"
 
     keyboard := [][]gotgbot.InlineKeyboardButton{{
-        {Text: "👥 Support Group", Url: "https://t.me/XBOTSUPPORTS"},
-        {Text: "📢 Support Channel", Url: "https://t.me/BeesonsBots"},
+        {Text: "👥 Support Group", Url: "https://t.me/Beesonn_support"},
+        {Text: "📢 Support Channel", Url: "https://t.me/Beesonn_channel"},
     }}
 
     replyMarkup := &gotgbot.InlineKeyboardMarkup{
@@ -49,4 +51,24 @@ func Start(b *gotgbot.Bot, ctx *ext.Context) error {
     })
     
     return err
+}
+
+func HandleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
+    if ctx.EffectiveMessage.Text == "" {
+        return nil
+    }
+
+    text := ctx.EffectiveMessage.Text
+
+    instagramRegex := regexp.MustCompile(`(https?://)?(www\.)?(instagram\.com|instagr\.am)/.+`)
+    if instagramRegex.MatchString(text) {
+        return utils.HandleInstagram(b, ctx)
+    }
+
+    pinterestRegex := regexp.MustCompile(`(https?://)?(www\.)?(pinterest\.com|pin\.it)/.+`)
+    if pinterestRegex.MatchString(text) {
+        return utils.HandlePinterest(b, ctx)
+    }
+
+    return nil
 }
