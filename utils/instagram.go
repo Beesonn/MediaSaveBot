@@ -39,10 +39,12 @@ func HandleInstagram(b *gotgbot.Bot, ctx *ext.Context) error {
         if source.Type == "video" {
             media = append(media, gotgbot.InputMediaVideo{
                 Media: gotgbot.InputFileByURL(source.URL),
+                Caption: source.Caption,
             })
         } else {
             media = append(media, gotgbot.InputMediaPhoto{
                 Media: gotgbot.InputFileByURL(source.URL),
+                Caption: source.Caption,
             })
         }
     }
