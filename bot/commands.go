@@ -13,7 +13,6 @@ import (
 
 func Start(b *gotgbot.Bot, ctx *ext.Context) error {
     user := ctx.EffectiveUser
-    chat := ctx.EffectiveChat
     
     name := user.FirstName
     if user.LastName != "" {
