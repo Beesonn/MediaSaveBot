@@ -78,7 +78,7 @@ func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
         broadcastMu.Lock()
         broadcastActive = false
         broadcastMu.Unlock()
-        _, err := statusMsg.EditText(b, fmt.Sprintf("❌ Error getting users: %v", err), nil)
+        _, _, err := statusMsg.EditText(b, fmt.Sprintf("❌ Error getting users: %v", err), nil)
         return err
     }
 
@@ -107,11 +107,11 @@ func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
                 "Stopped at: %d/%d",
                 total, success, failed, i, total,
             )
-            _, err := statusMsg.EditText(b, finalText, nil)
+            _, _, err := statusMsg.EditText(b, finalText, nil)
             return err
             
         default:
-            _, err := b.CopyMessage(user.ChatID, ctx.EffectiveChat.Id, ctx.EffectiveMessage.ReplyToMessage.MessageId, nil)
+            _, err := b.CopyMessage(user.UserID, ctx.EffectiveChat.Id, ctx.EffectiveMessage.ReplyToMessage.MessageId, nil)
             
             if err != nil {
                 failed++
@@ -153,7 +153,7 @@ func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
         "❌ Failed: %d",
         total, success, failed,
     )
-    _, err = statusMsg.EditText(b, finalText, nil)
+    _, _, err = statusMsg.EditText(b, finalText, nil)
     
     return err
 }
