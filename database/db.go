@@ -20,7 +20,6 @@ var (
 type User struct {
     UserID    int64     `bson:"user_id"`
     Name      string    `bson:"name"`
-    JoinedAt  time.Time `bson:"joined_at"`
 }
 
 func InitDB() error {
@@ -52,24 +51,24 @@ func InitDB() error {
     return nil
 }
 
-func SaveUser(ctx context.Context, user *User) error {
+func SaveUser(ctx context.Context, name string, usrid string) {
     if mongoClient == nil {
         if err := InitDB(); err != nil {
-            return fmt.Errorf("failed to initialize database: %v", err)
+            log.Printf("failed to initialize database: %v", err)
         }
     }
-    if GetUser(user.UserID) == nil {
-        user.JoinedAt = time.Now()
-        filter := bson.M{"user_id": user.UserID}
-        update := bson.M{"$set": user}
-        opts := options.Update().SetUpsert(true)
-
-        _, err := userCollection.UpdateOne(ctx, filter, update, opts)
+    
+    dbUser := &database.User{
+        UserID:   usrid,
+        Name:     name,
+    }   
+    if GetUser(context.Background(), usrid) == nil {
+        _, err := userCollection.InsertOne(ctx, dbUser)
         if err != nil {
-            return fmt.Errorf("error saving user: %v", err)
+            log.Printf("error saving user: %v", err)
         }
         log.Printf("User %d saved successfully", user.UserID)
-    return nil
+    }
 }
 
 func GetUser(ctx context.Context, userID int64) (*User, error) {
