@@ -51,7 +51,7 @@ func InitDB() error {
     return nil
 }
 
-func SaveUser(ctx context.Context, name string, usrid string) {
+func SaveUser(ctx context.Context, name string, usrid int64) {
     if mongoClient == nil {
         if err := InitDB(); err != nil {
             log.Printf("failed to initialize database: %v", err)
@@ -67,7 +67,7 @@ func SaveUser(ctx context.Context, name string, usrid string) {
         if err != nil {
             log.Printf("error saving user: %v", err)
         }
-        log.Printf("User %d saved successfully", user.UserID)
+        log.Printf("User %d saved successfully", usrid)
     }
 }
 
