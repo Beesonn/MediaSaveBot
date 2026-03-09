@@ -12,6 +12,10 @@ import (
 
 func Start(b *gotgbot.Bot, ctx *ext.Context) error {
     user := ctx.EffectiveUser
+    chat := ctx.EffectiveChat
+    if chat.Type != "private" {
+        return nil
+    }
     go database.SaveUser(context.Background(), user.FirstName, user.Id)
     
     text := "Hello! 👋\n\n" +
