@@ -58,19 +58,17 @@ func SaveUser(ctx context.Context, user *User) error {
             return fmt.Errorf("failed to initialize database: %v", err)
         }
     }
+    if GetUser(user.UserID) == nil {
+        user.JoinedAt = time.Now()
+        filter := bson.M{"user_id": user.UserID}
+        update := bson.M{"$set": user}
+        opts := options.Update().SetUpsert(true)
 
-    user.JoinedAt = time.Now()
-
-    filter := bson.M{"user_id": user.UserID}
-    update := bson.M{"$set": user}
-    opts := options.Update().SetUpsert(true)
-
-    _, err := userCollection.UpdateOne(ctx, filter, update, opts)
-    if err != nil {
-        return fmt.Errorf("error saving user: %v", err)
-    }
-
-    log.Printf("User %d saved successfully", user.UserID)
+        _, err := userCollection.UpdateOne(ctx, filter, update, opts)
+        if err != nil {
+            return fmt.Errorf("error saving user: %v", err)
+        }
+        log.Printf("User %d saved successfully", user.UserID)
     return nil
 }
 
