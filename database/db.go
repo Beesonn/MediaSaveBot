@@ -58,11 +58,11 @@ func SaveUser(ctx context.Context, name string, usrid string) {
         }
     }
     
-    dbUser := &database.User{
+    dbUser := &User{
         UserID:   usrid,
         Name:     name,
     }   
-    if GetUser(context.Background(), usrid) == nil {
+    if chk, _ := GetUser(context.Background(), usrid); chk == nil {
         _, err := userCollection.InsertOne(ctx, dbUser)
         if err != nil {
             log.Printf("error saving user: %v", err)
