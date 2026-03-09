@@ -42,6 +42,31 @@ func isAdmin(userID int64) bool {
     return adminIDs[userID]
 }
 
+func Stats(b *gotgbot.Bot, ctx *ext.Context) error {
+    if !isAdmin(ctx.EffectiveUser.Id) {
+        _, err := ctx.EffectiveMessage.Reply(b, "❌ You are not authorized to use this command.", nil)
+        return err
+    }
+    
+    count, err := database.GetUserCount(context.Background())
+    if err != nil {
+        _, err := ctx.EffectiveMessage.Reply(b, fmt.Sprintf("❌ Error getting stats: %v", err), nil)
+        return err
+    }
+
+    text := fmt.Sprintf(
+        "📊 <b>Bot Statistics</b>\n\n"+
+        "👥 <b>Total Users:</b> %d\n"+
+        count,
+    )
+
+    _, err = ctx.EffectiveMessage.Reply(b, text, &gotgbot.SendMessageOpts{
+        ParseMode: "HTML",
+    })
+    
+    return err
+}
+
 func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
     if !isAdmin(ctx.EffectiveUser.Id) {
         _, err := ctx.EffectiveMessage.Reply(b, "❌ You are not authorized to use this command.", nil)
