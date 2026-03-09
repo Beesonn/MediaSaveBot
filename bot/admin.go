@@ -56,7 +56,7 @@ func Stats(b *gotgbot.Bot, ctx *ext.Context) error {
 
     text := fmt.Sprintf(
         "📊 <b>Bot Statistics</b>\n\n"+
-        "👥 <b>Total Users:</b> %d\n"+
+        "👥 <b>Total Users:</b> %d\n"
         count,
     )
 
