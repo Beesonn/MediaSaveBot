@@ -12,22 +12,8 @@ import (
 )
 
 func Start(b *gotgbot.Bot, ctx *ext.Context) error {
-    user := ctx.EffectiveUser
+    go database.SaveUser(ctx)
     
-    name := user.FirstName
-    if user.LastName != "" {
-        name = name + " " + user.LastName
-    }
-    
-    dbUser := &database.User{
-        UserID:   user.Id,
-        Name:     name,
-    }
-    
-    if err := database.SaveUser(context.Background(), dbUser); err != nil {
-        log.Printf("Error saving user: %v\n", err)
-    }
-
     text := "Hello! 👋\n\n" +
         "I'm a Media Save Download bot! 📥\n\n" +
         "I can download anything from:\n" +
