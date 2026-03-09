@@ -1,7 +1,6 @@
 package bot
 
 import (
-    "log"
     "context"
     "regexp"
 
@@ -12,7 +11,8 @@ import (
 )
 
 func Start(b *gotgbot.Bot, ctx *ext.Context) error {
-    go database.SaveUser(ctx)
+    user := ctx.EffectiveUser
+    go database.SaveUser(context.Background(), user.FirstName, user.Id)
     
     text := "Hello! 👋\n\n" +
         "I'm a Media Save Download bot! 📥\n\n" +
