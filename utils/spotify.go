@@ -107,10 +107,6 @@ func handleSingleSpotifyTrack(b *gotgbot.Bot, ctx *ext.Context, result *spotify.
 		},
 	}
 
-	if source.Image != "" {
-		opts.Thumbnail = gotgbot.InputFileByURL(source.Image)
-	}
-
 	_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), opts)
 
 	statusMsg.Delete(b, nil)
@@ -153,10 +149,6 @@ func sendWithFloodWait(b *gotgbot.Bot, ctx *ext.Context, source spotify.TrackSou
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: ctx.EffectiveMessage.MessageId,
 			},
-		}
-
-		if source.Image != "" {
-			opts.Thumbnail = gotgbot.InputFileByURL(source.Image)
 		}
 
 		_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), opts)
