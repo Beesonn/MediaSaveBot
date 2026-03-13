@@ -33,12 +33,10 @@ func setUserProcessing(userID int64, processing bool) {
 
 func HandleSpotify(b *gotgbot.Bot, ctx *ext.Context) error {
 	userID := ctx.EffectiveMessage.From.Id
-	chatID := ctx.EffectiveChat.Id
-	url := ctx.EffectiveMessage.Text
-
+	
 	if isUserProcessing(userID) {
 		_, err := ctx.EffectiveMessage.Reply(b, 
-			"You already have a task processing. Please wait for it to finish before sending another request.", 
+			"⚠️ You already have a task processing. Please wait for it to finish before sending another request.", 
 			nil)
 		return err
 	}
@@ -53,6 +51,7 @@ func HandleSpotify(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	client := dlkitgo.NewClient()
 	
+	url := ctx.EffectiveMessage.Text
 	stream, err := client.Spotify.Stream(url)
 	if err != nil {
 		statusMsg.Delete(b, nil)
@@ -72,10 +71,9 @@ func HandleSpotify(b *gotgbot.Bot, ctx *ext.Context) error {
 	statusText := fmt.Sprintf("📥 Found %d track(s) (%s)\nStarting download...", trackCount, contentType)
 	statusMsg.EditText(b, statusText, nil)
 
-	switch contentType {
-	case "playlist", "album":
+	if trackCount > 1 {
 		err = handleMultipleSpotifyTracks(b, ctx, stream, statusMsg)
-	default:
+	} else {
 		err = handleSingleSpotifyTrack(b, ctx, stream, statusMsg)
 	}
 
@@ -98,24 +96,12 @@ func handleSingleSpotifyTrack(b *gotgbot.Bot, ctx *ext.Context, stream *dlkitgo.
 	
 	statusMsg.EditText(b, fmt.Sprintf("📥 Downloading: %s - %s", source.Artist, source.Title), nil)
 
-	audio := gotgbot.InputMediaAudio{
-		Media:     gotgbot.InputFileByURL(source.URL),
+	_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), &gotgbot.SendAudioOpts{
 		Caption:   fmt.Sprintf("%s - %s", source.Artist, source.Title),
 		Title:     source.Title,
 		Performer: source.Artist,
 		Duration:  source.Duration,
-	}
-
-	if source.Image != "" {
-		audio.Thumbnail = &gotgbot.InputFileByURL{FileURL: source.Image}
-	}
-
-	_, err := b.SendAudio(ctx.EffectiveChat.Id, audio.Media, &gotgbot.SendAudioOpts{
-		Caption:   audio.Caption,
-		Title:     audio.Title,
-		Performer: audio.Performer,
-		Duration:  audio.Duration,
-		Thumbnail: audio.Thumbnail,
+		Thumbnail: gotgbot.InputFileByURL(source.Image),
 		ReplyParameters: &gotgbot.ReplyParameters{
 			MessageId: ctx.EffectiveMessage.MessageId,
 		},
@@ -133,19 +119,7 @@ func handleMultipleSpotifyTracks(b *gotgbot.Bot, ctx *ext.Context, stream *dlkit
 			i+1, totalTracks, source.Artist, source.Title)
 		statusMsg.EditText(b, progressMsg, nil)
 
-		audio := gotgbot.InputMediaAudio{
-			Media:     gotgbot.InputFileByURL(source.URL),
-			Caption:   fmt.Sprintf("%s - %s", source.Artist, source.Title),
-			Title:     source.Title,
-			Performer: source.Artist,
-			Duration:  source.Duration,
-		}
-
-		if source.Image != "" {
-			audio.Thumbnail = &gotgbot.InputFileByURL{FileURL: source.Image}
-		}
-
-		err := sendWithFloodWait(b, ctx, audio, i+1, totalTracks)
+		err := sendWithFloodWait(b, ctx, source, i+1, totalTracks)
 		if err != nil {
 			statusMsg.EditText(b, fmt.Sprintf("❌ Error at track %d: %v", i+1, err), nil)
 			return err
@@ -160,17 +134,17 @@ func handleMultipleSpotifyTracks(b *gotgbot.Bot, ctx *ext.Context, stream *dlkit
 	return nil
 }
 
-func sendWithFloodWait(b *gotgbot.Bot, ctx *ext.Context, audio gotgbot.InputMediaAudio, current, total int) error {
+func sendWithFloodWait(b *gotgbot.Bot, ctx *ext.Context, source dlkitgo.TrackSource, current, total int) error {
 	maxRetries := 3
 	retryDelay := 5 * time.Second
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		_, err := b.SendAudio(ctx.EffectiveChat.Id, audio.Media, &gotgbot.SendAudioOpts{
-			Caption:   audio.Caption,
-			Title:     audio.Title,
-			Performer: audio.Performer,
-			Duration:  audio.Duration,
-			Thumbnail: audio.Thumbnail,
+		_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), &gotgbot.SendAudioOpts{
+			Caption:   fmt.Sprintf("%s - %s", source.Artist, source.Title),
+			Title:     source.Title,
+			Performer: source.Artist,
+			Duration:  source.Duration,
+			Thumbnail: gotgbot.InputFileByURL(source.Image),
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: ctx.EffectiveMessage.MessageId,
 			},
