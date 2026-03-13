@@ -108,8 +108,7 @@ func handleSingleSpotifyTrack(b *gotgbot.Bot, ctx *ext.Context, result *spotify.
 	}
 
 	if source.Image != "" {
-		thumbnail := gotgbot.InputFileByURL(source.Image)
-		opts.Thumbnail = &thumbnail
+		opts.Thumbnail = gotgbot.InputFileByURL(source.Image)
 	}
 
 	_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), opts)
@@ -126,7 +125,7 @@ func handleMultipleSpotifyTracks(b *gotgbot.Bot, ctx *ext.Context, result *spoti
 			i+1, totalTracks, source.Artist, source.Title)
 		statusMsg.EditText(b, progressMsg, nil)
 
-		err := sendWithFloodWait(b, ctx, &source, i+1, totalTracks)
+		err := sendWithFloodWait(b, ctx, source, i+1, totalTracks)
 		if err != nil {
 			statusMsg.EditText(b, fmt.Sprintf("❌ Error at track %d: %v", i+1, err), nil)
 			return err
@@ -141,7 +140,7 @@ func handleMultipleSpotifyTracks(b *gotgbot.Bot, ctx *ext.Context, result *spoti
 	return nil
 }
 
-func sendWithFloodWait(b *gotgbot.Bot, ctx *ext.Context, source *spotify.TrackSource, current, total int) error {
+func sendWithFloodWait(b *gotgbot.Bot, ctx *ext.Context, source spotify.TrackSource, current, total int) error {
 	maxRetries := 3
 	retryDelay := 5 * time.Second
 
@@ -157,8 +156,7 @@ func sendWithFloodWait(b *gotgbot.Bot, ctx *ext.Context, source *spotify.TrackSo
 		}
 
 		if source.Image != "" {
-			thumbnail := gotgbot.InputFileByURL(source.Image)
-			opts.Thumbnail = &thumbnail
+			opts.Thumbnail = gotgbot.InputFileByURL(source.Image)
 		}
 
 		_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), opts)
