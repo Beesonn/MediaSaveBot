@@ -53,47 +53,47 @@ func HandleSpotify(b *gotgbot.Bot, ctx *ext.Context) error {
 	client := dlkitgo.NewClient()
 	
 	url := ctx.EffectiveMessage.Text
-	stream, err := client.Spotify.Stream(url)
+	result, err := client.Spotify.Stream(url)
 	if err != nil {
 		statusMsg.Delete(b, nil)
 		_, err = ctx.EffectiveMessage.Reply(b, fmt.Sprintf("❌ Error processing Spotify link: %v", err), nil)
 		return err
 	}
 
-	if len(stream.Source) == 0 {
+	if len(result.Source) == 0 {
 		statusMsg.Delete(b, nil)
 		_, err = ctx.EffectiveMessage.Reply(b, "❌ No tracks found in this Spotify link.", nil)
 		return err
 	}
 
-	contentType := getSpotifyContentType(stream)
-	trackCount := len(stream.Source)
+	contentType := getSpotifyContentType(result)
+	trackCount := len(result.Source)
 	
 	statusText := fmt.Sprintf("📥 Found %d track(s) (%s)\nStarting download...", trackCount, contentType)
 	statusMsg.EditText(b, statusText, nil)
 
 	if trackCount > 1 {
-		err = handleMultipleSpotifyTracks(b, ctx, stream, statusMsg)
+		err = handleMultipleSpotifyTracks(b, ctx, result, statusMsg)
 	} else {
-		err = handleSingleSpotifyTrack(b, ctx, stream, statusMsg)
+		err = handleSingleSpotifyTrack(b, ctx, result, statusMsg)
 	}
 
 	return err
 }
 
-func getSpotifyContentType(stream *dlkitgo.StreamResult) string {
-	if len(stream.Source) == 0 {
+func getSpotifyContentType(result *spotify.StreamResult) string {
+	if len(result.Source) == 0 {
 		return "unknown"
 	}
 	
-	if len(stream.Source) > 1 {
+	if len(result.Source) > 1 {
 		return "playlist/album"
 	}
 	return "track"
 }
 
-func handleSingleSpotifyTrack(b *gotgbot.Bot, ctx *ext.Context, stream *dlkitgo.StreamResult, statusMsg *gotgbot.Message) error {
-	source := stream.Source[0]
+func handleSingleSpotifyTrack(b *gotgbot.Bot, ctx *ext.Context, result *spotify.StreamResult, statusMsg *gotgbot.Message) error {
+	source := result.Source[0]
 	
 	statusMsg.EditText(b, fmt.Sprintf("📥 Downloading: %s - %s", source.Artist, source.Title), nil)
 
@@ -101,7 +101,7 @@ func handleSingleSpotifyTrack(b *gotgbot.Bot, ctx *ext.Context, stream *dlkitgo.
 		Caption:   fmt.Sprintf("%s - %s", source.Artist, source.Title),
 		Title:     source.Title,
 		Performer: source.Artist,
-		Duration:  source.Duration,
+		Duration:  int64(source.Duration),
 		ReplyParameters: &gotgbot.ReplyParameters{
 			MessageId: ctx.EffectiveMessage.MessageId,
 		},
@@ -117,24 +117,15 @@ func handleSingleSpotifyTrack(b *gotgbot.Bot, ctx *ext.Context, stream *dlkitgo.
 	return err
 }
 
-func handleMultipleSpotifyTracks(b *gotgbot.Bot, ctx *ext.Context, stream *dlkitgo.StreamResult, statusMsg *gotgbot.Message) error {
-	totalTracks := len(stream.Source)
+func handleMultipleSpotifyTracks(b *gotgbot.Bot, ctx *ext.Context, result *spotify.StreamResult, statusMsg *gotgbot.Message) error {
+	totalTracks := len(result.Source)
 	
-	for i, source := range stream.Source {
+	for i, source := range result.Source {
 		progressMsg := fmt.Sprintf("📥 Downloading %d/%d: %s - %s", 
 			i+1, totalTracks, source.Artist, source.Title)
 		statusMsg.EditText(b, progressMsg, nil)
 
-		trackSource := spotify.TrackSource{
-			Title:       source.Title,
-			Artist:      source.Artist,
-			Image:       source.Image,
-			URL:         source.URL,
-			Duration:    source.Duration,
-			ReleaseDate: source.ReleaseDate,
-		}
-
-		err := sendWithFloodWait(b, ctx, trackSource, i+1, totalTracks)
+		err := sendWithFloodWait(b, ctx, source, i+1, totalTracks)
 		if err != nil {
 			statusMsg.EditText(b, fmt.Sprintf("❌ Error at track %d: %v", i+1, err), nil)
 			return err
@@ -158,7 +149,7 @@ func sendWithFloodWait(b *gotgbot.Bot, ctx *ext.Context, source spotify.TrackSou
 			Caption:   fmt.Sprintf("%s - %s", source.Artist, source.Title),
 			Title:     source.Title,
 			Performer: source.Artist,
-			Duration:  source.Duration,
+			Duration:  int64(source.Duration),
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: ctx.EffectiveMessage.MessageId,
 			},
