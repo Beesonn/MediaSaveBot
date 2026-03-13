@@ -60,5 +60,10 @@ func HandleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
         return utils.HandlePinterest(b, ctx)
     }
 
+    spotifyRegex := regexp.MustCompile(`(https?://)?(www\.)?(open\.spotify\.com)/.+`)
+    if spotifyRegex.MatchString(text) {
+        return utils.HandleSpotify(b, ctx)
+    }
+
     return nil
 }
