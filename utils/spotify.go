@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Beesonn/dlkitgo"
+	"github.com/Beesonn/dlkitgo/spotify"
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
@@ -96,16 +97,21 @@ func handleSingleSpotifyTrack(b *gotgbot.Bot, ctx *ext.Context, stream *dlkitgo.
 	
 	statusMsg.EditText(b, fmt.Sprintf("📥 Downloading: %s - %s", source.Artist, source.Title), nil)
 
-	_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), &gotgbot.SendAudioOpts{
+	opts := &gotgbot.SendAudioOpts{
 		Caption:   fmt.Sprintf("%s - %s", source.Artist, source.Title),
 		Title:     source.Title,
 		Performer: source.Artist,
 		Duration:  source.Duration,
-		Thumbnail: gotgbot.InputFileByURL(source.Image),
 		ReplyParameters: &gotgbot.ReplyParameters{
 			MessageId: ctx.EffectiveMessage.MessageId,
 		},
-	})
+	}
+
+	if source.Image != "" {
+		opts.Thumbnail = gotgbot.InputFileByURL(source.Image)
+	}
+
+	_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), opts)
 
 	statusMsg.Delete(b, nil)
 	return err
@@ -119,7 +125,16 @@ func handleMultipleSpotifyTracks(b *gotgbot.Bot, ctx *ext.Context, stream *dlkit
 			i+1, totalTracks, source.Artist, source.Title)
 		statusMsg.EditText(b, progressMsg, nil)
 
-		err := sendWithFloodWait(b, ctx, source, i+1, totalTracks)
+		trackSource := spotify.TrackSource{
+			Title:       source.Title,
+			Artist:      source.Artist,
+			Image:       source.Image,
+			URL:         source.URL,
+			Duration:    source.Duration,
+			ReleaseDate: source.ReleaseDate,
+		}
+
+		err := sendWithFloodWait(b, ctx, trackSource, i+1, totalTracks)
 		if err != nil {
 			statusMsg.EditText(b, fmt.Sprintf("❌ Error at track %d: %v", i+1, err), nil)
 			return err
@@ -134,21 +149,26 @@ func handleMultipleSpotifyTracks(b *gotgbot.Bot, ctx *ext.Context, stream *dlkit
 	return nil
 }
 
-func sendWithFloodWait(b *gotgbot.Bot, ctx *ext.Context, source dlkitgo.TrackSource, current, total int) error {
+func sendWithFloodWait(b *gotgbot.Bot, ctx *ext.Context, source spotify.TrackSource, current, total int) error {
 	maxRetries := 3
 	retryDelay := 5 * time.Second
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), &gotgbot.SendAudioOpts{
+		opts := &gotgbot.SendAudioOpts{
 			Caption:   fmt.Sprintf("%s - %s", source.Artist, source.Title),
 			Title:     source.Title,
 			Performer: source.Artist,
 			Duration:  source.Duration,
-			Thumbnail: gotgbot.InputFileByURL(source.Image),
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: ctx.EffectiveMessage.MessageId,
 			},
-		})
+		}
+
+		if source.Image != "" {
+			opts.Thumbnail = gotgbot.InputFileByURL(source.Image)
+		}
+
+		_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), opts)
 
 		if err == nil {
 			return nil
