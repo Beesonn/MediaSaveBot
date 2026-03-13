@@ -21,7 +21,6 @@ func Start(b *gotgbot.Bot, ctx *ext.Context) error {
     text := "Hello! 👋\n\n" +
         "I'm a Media Save Download bot! 📥\n\n" +
         "I can download anything from:\n" +
-        "🎵 YouTube\n" +
         "🎧 Spotify\n" +
         "📸 Pinterest\n" +
         "📷 Instagram\n" +
