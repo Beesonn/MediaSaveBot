@@ -23,7 +23,6 @@ var (
 )
 
 func init() {
-    // Load admin IDs from environment variable
     adminIDs = make(map[int64]bool)
     adminEnv := os.Getenv("ADMIN")
     if adminEnv != "" {
@@ -44,7 +43,11 @@ func isAdmin(userID int64) bool {
 
 func Stats(b *gotgbot.Bot, ctx *ext.Context) error {
     if !isAdmin(ctx.EffectiveUser.Id) {
-        _, err := ctx.EffectiveMessage.Reply(b, "❌ You are not authorized to use this command.", nil)
+        return nil
+    }
+    
+    if !database.IsMongoAvailable() {
+        _, err := ctx.EffectiveMessage.Reply(b, "❌ MongoDB is not configured. Please set MONGODB_URI environment variable to use this command.", nil)
         return err
     }
     
@@ -69,7 +72,11 @@ func Stats(b *gotgbot.Bot, ctx *ext.Context) error {
 
 func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
     if !isAdmin(ctx.EffectiveUser.Id) {
-        _, err := ctx.EffectiveMessage.Reply(b, "❌ You are not authorized to use this command.", nil)
+        return nil
+    }
+    
+    if !database.IsMongoAvailable() {
+        _, err := ctx.EffectiveMessage.Reply(b, "❌ MongoDB is not configured. Please set MONGODB_URI environment variable to use this command.", nil)
         return err
     }
 
@@ -104,6 +111,14 @@ func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
         broadcastActive = false
         broadcastMu.Unlock()
         _, _, err := statusMsg.EditText(b, fmt.Sprintf("❌ Error getting users: %v", err), nil)
+        return err
+    }
+
+    if len(users) == 0 {
+        broadcastMu.Lock()
+        broadcastActive = false
+        broadcastMu.Unlock()
+        _, _, err := statusMsg.EditText(b, "❌ No users found in database.", nil)
         return err
     }
 

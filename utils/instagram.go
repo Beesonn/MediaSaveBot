@@ -1,12 +1,24 @@
 package utils
 
 import (
-    "fmt"
-
     "github.com/Beesonn/dlkitgo"
     "github.com/PaulSonOfLars/gotgbot/v2"
     "github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
+
+func GetInstagramMedia(url string) ([]interface{}, string, error) {
+    client := dlkitgo.NewClient()
+    stream, err := client.Instagram.Stream(url)
+    if err != nil {
+        return nil, "", err
+    }
+    
+    sources := make([]interface{}, len(stream.Source))
+    for i, s := range stream.Source {
+        sources[i] = s
+    }
+    return sources, stream.Caption, nil
+}
 
 func HandleInstagram(b *gotgbot.Bot, ctx *ext.Context) error {
     url := ctx.EffectiveMessage.Text
@@ -16,35 +28,37 @@ func HandleInstagram(b *gotgbot.Bot, ctx *ext.Context) error {
         return err
     }
 
-    client := dlkitgo.NewClient()
-    
-    stream, err := client.Instagram.Stream(url)
+    sources, caption, err := GetInstagramMedia(url)
     if err != nil {
         statusMsg.Delete(b, nil)
-        _, err = ctx.EffectiveMessage.Reply(b, fmt.Sprintf("❌ Error processing Instagram link: %v", err), nil)
-        return err
+        ctx.EffectiveMessage.Reply(b, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
+        return nil
     }
 
-    if len(stream.Source) == 0 {
+    if len(sources) == 0 {
         statusMsg.Delete(b, nil)
-        _, err = ctx.EffectiveMessage.Reply(b, "❌ No media found in this Instagram post.", nil)
-        return err
+        ctx.EffectiveMessage.Reply(b, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
+        return nil
     }
 
     statusMsg.Delete(b, nil)
 
     media := make([]gotgbot.InputMedia, 0)
 
-    for _, source := range stream.Source {
+    for _, s := range sources {
+        source := s.(struct {
+            Type string
+            URL  string
+        })
         if source.Type == "video" {
             media = append(media, gotgbot.InputMediaVideo{
-                Media: gotgbot.InputFileByURL(source.URL),
-                Caption: stream.Caption,
+                Media:   gotgbot.InputFileByURL(source.URL),
+                Caption: caption,
             })
         } else {
             media = append(media, gotgbot.InputMediaPhoto{
-                Media: gotgbot.InputFileByURL(source.URL),
-                Caption: stream.Caption,
+                Media:   gotgbot.InputFileByURL(source.URL),
+                Caption: caption,
             })
         }
     }

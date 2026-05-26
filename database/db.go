@@ -15,17 +15,19 @@ import (
 var (
     mongoClient    *mongo.Client
     userCollection *mongo.Collection
+    mongoAvailable = false
 )
 
 type User struct {
-    UserID    int64     `bson:"user_id"`
-    Name      string    `bson:"name"`
+    UserID int64  `bson:"user_id"`
+    Name   string `bson:"name"`
 }
 
 func InitDB() error {
     mongoURI := os.Getenv("MONGODB_URI")
     if mongoURI == "" {
-        return fmt.Errorf("MONGODB_URI environment variable is empty")
+        log.Println("MONGODB_URI not set, running without database")
+        return nil
     }
 
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -35,47 +37,52 @@ func InitDB() error {
 
     client, err := mongo.Connect(ctx, clientOptions)
     if err != nil {
-        return fmt.Errorf("error connecting to MongoDB: %v", err)
+        log.Printf("Error connecting to MongoDB: %v, running without database", err)
+        return nil
     }
 
     err = client.Ping(ctx, nil)
     if err != nil {
-        return fmt.Errorf("error pinging MongoDB: %v", err)
+        log.Printf("Error pinging MongoDB: %v, running without database", err)
+        return nil
     }
 
     mongoClient = client
     db := client.Database("media_save_bot")
     userCollection = db.Collection("users")
+    mongoAvailable = true
 
     log.Println("MongoDB initialized successfully")
     return nil
 }
 
+func IsMongoAvailable() bool {
+    return mongoAvailable
+}
+
 func SaveUser(ctx context.Context, name string, usrid int64) {
-    if mongoClient == nil {
-        if err := InitDB(); err != nil {
-            log.Printf("failed to initialize database: %v", err)
-        }
+    if !mongoAvailable {
+        return
+    }
+
+    dbUser := &User{
+        UserID: usrid,
+        Name:   name,
     }
     
-    dbUser := &User{
-        UserID:   usrid,
-        Name:     name,
-    }   
     if chk, _ := GetUser(context.Background(), usrid); chk == nil {
         _, err := userCollection.InsertOne(ctx, dbUser)
         if err != nil {
             log.Printf("error saving user: %v", err)
+        } else {
+            log.Printf("User %d saved successfully", usrid)
         }
-        log.Printf("User %d saved successfully", usrid)
     }
 }
 
 func GetUser(ctx context.Context, userID int64) (*User, error) {
-    if mongoClient == nil {
-        if err := InitDB(); err != nil {
-            return nil, fmt.Errorf("failed to initialize database: %v", err)
-        }
+    if !mongoAvailable {
+        return nil, nil
     }
 
     var user User
@@ -88,15 +95,12 @@ func GetUser(ctx context.Context, userID int64) (*User, error) {
         }
         return nil, fmt.Errorf("error getting user: %v", err)
     }
-
     return &user, nil
 }
 
 func GetAllUsers(ctx context.Context) ([]User, error) {
-    if mongoClient == nil {
-        if err := InitDB(); err != nil {
-            return nil, fmt.Errorf("failed to initialize database: %v", err)
-        }
+    if !mongoAvailable {
+        return []User{}, nil
     }
 
     cursor, err := userCollection.Find(ctx, bson.M{})
@@ -118,22 +122,18 @@ func GetAllUsers(ctx context.Context) ([]User, error) {
     if err := cursor.Err(); err != nil {
         return nil, fmt.Errorf("cursor error: %v", err)
     }
-
     return users, nil
 }
 
 func GetUserCount(ctx context.Context) (int64, error) {
-    if mongoClient == nil {
-        if err := InitDB(); err != nil {
-            return 0, fmt.Errorf("failed to initialize database: %v", err)
-        }
+    if !mongoAvailable {
+        return 0, nil
     }
 
     count, err := userCollection.CountDocuments(ctx, bson.M{})
     if err != nil {
         return 0, fmt.Errorf("error counting users: %v", err)
     }
-
     return count, nil
 }
 

@@ -1,196 +1,849 @@
 package utils
 
 import (
-	"fmt"
-	"sync"
-	"time"
+    "crypto/rand"
+    "encoding/hex"
+    "fmt"
+    "html"
+    "regexp"
+    "strconv"
+    "strings"
+    "sync"
+    "time"
 
-	"github.com/Beesonn/dlkitgo"
-	"github.com/Beesonn/dlkitgo/spotify"
-	"github.com/PaulSonOfLars/gotgbot/v2"
-	"github.com/PaulSonOfLars/gotgbot/v2/ext"
+    "github.com/Beesonn/dlkitgo"
+    "github.com/Beesonn/dlkitgo/spotify"
+    "github.com/PaulSonOfLars/gotgbot/v2"
+    "github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
 
 var (
-	activeTasks   = make(map[int64]bool)
-	tasksMutex    = &sync.RWMutex{}
+    activeTasks     = make(map[int64]bool)
+    tasksMutex      = &sync.RWMutex{}
+    cancelDownloads = make(map[int64]chan bool)
+    cancelMutex     = &sync.RWMutex{}
+    playlistCache   = make(map[string]*CachedPlaylist)
+    playlistCacheMu = &sync.RWMutex{}
+    BotUsername     string
+    failedTracks    = make(map[string]*FailedTrack)
+    failedMutex     = &sync.RWMutex{}
 )
 
+type PlaylistTrack struct {
+    Name     string
+    Artist   string
+    URL      string
+    Duration int
+    SongID   string
+}
+
+type PlaylistInfo struct {
+    Type        string
+    Name        string
+    Artist      string
+    Image       string
+    TotalTracks int
+    Tracks      []PlaylistTrack
+    PlaylistID  string
+}
+
+type CachedPlaylist struct {
+    Info      *PlaylistInfo
+    ExpiresAt time.Time
+}
+
+type FailedTrack struct {
+    Track      PlaylistTrack
+    UserID     int64
+    ChatID     int64
+    RetryCount int
+}
+
+func SetBotUsername(username string) {
+    BotUsername = username
+}
+
+func EncodePlaylistCallback(playlistID, typ string) string {
+    return fmt.Sprintf("pl_%s_%s", playlistID, typ)
+}
+
+func encodePlaylistCallback(playlistID, typ string) string {
+    return EncodePlaylistCallback(playlistID, typ)
+}
+
+func decodePlaylistCallback(encoded string) (string, string, error) {
+    parts := strings.Split(encoded, "_")
+    if len(parts) != 3 || parts[0] != "pl" {
+        return "", "", fmt.Errorf("invalid format")
+    }
+    return parts[1], parts[2], nil
+}
+
+func GetCancelChannel(userID int64) (bool, chan bool) {
+    cancelMutex.RLock()
+    defer cancelMutex.RUnlock()
+    ch, exists := cancelDownloads[userID]
+    return exists, ch
+}
+
+func RemoveCancelChannel(userID int64) {
+    cancelMutex.Lock()
+    defer cancelMutex.Unlock()
+    delete(cancelDownloads, userID)
+}
+
+func SetCancelChannel(userID int64, ch chan bool) {
+    cancelMutex.Lock()
+    defer cancelMutex.Unlock()
+    if oldCh, exists := cancelDownloads[userID]; exists {
+        close(oldCh)
+    }
+    cancelDownloads[userID] = ch
+}
+
 func isUserProcessing(userID int64) bool {
-	tasksMutex.RLock()
-	defer tasksMutex.RUnlock()
-	return activeTasks[userID]
+    tasksMutex.RLock()
+    defer tasksMutex.RUnlock()
+    return activeTasks[userID]
 }
 
 func setUserProcessing(userID int64, processing bool) {
-	tasksMutex.Lock()
-	defer tasksMutex.Unlock()
-	if processing {
-		activeTasks[userID] = true
-	} else {
-		delete(activeTasks, userID)
-	}
+    tasksMutex.Lock()
+    defer tasksMutex.Unlock()
+    if processing {
+        activeTasks[userID] = true
+    } else {
+        delete(activeTasks, userID)
+    }
+}
+
+func SearchSpotifyTracks(query string) ([]spotify.SearchResult, error) {
+    client := dlkitgo.NewClient()
+    search, err := client.Spotify.Search(query, "track")
+    if err != nil {
+        return nil, err
+    }
+    return search.Results, nil
+}
+
+func GetTrackStream(trackURL string) (spotify.StreamResult, error) {
+    client := dlkitgo.NewClient()
+    return client.Spotify.Stream(trackURL)
+}
+
+func ExtractSpotifyID(url string) string {
+    url = strings.Split(url, "?")[0]
+    patterns := []string{
+        `playlist/([a-zA-Z0-9]+)`,
+        `album/([a-zA-Z0-9]+)`,
+        `track/([a-zA-Z0-9]+)`,
+    }
+    for _, pattern := range patterns {
+        re := regexp.MustCompile(pattern)
+        matches := re.FindStringSubmatch(url)
+        if len(matches) > 1 {
+            return matches[1]
+        }
+    }
+    return ""
+}
+
+func EscapeHTML(s string) string {
+    return html.EscapeString(s)
+}
+
+func GetSpotifyInfoByID(playlistID, typ string) (*PlaylistInfo, error) {
+    if playlistID == "" {
+        return nil, fmt.Errorf("empty playlist ID")
+    }
+    playlistID = strings.TrimSpace(playlistID)
+    var url string
+    switch typ {
+    case "playlist":
+        url = "https://open.spotify.com/playlist/" + playlistID
+    case "album":
+        url = "https://open.spotify.com/album/" + playlistID
+    default:
+        return nil, fmt.Errorf("unknown type: %s", typ)
+    }
+    client := dlkitgo.NewClient()
+    info, err := client.Spotify.GetInfo(url)
+    if err != nil {
+        return nil, fmt.Errorf("failed to fetch: %v", err)
+    }
+    playlistInfo := &PlaylistInfo{
+        Type:        info.Type,
+        Name:        EscapeHTML(info.Name),
+        Artist:      EscapeHTML(info.Artist),
+        Image:       info.Image,
+        TotalTracks: len(info.Tracks),
+        Tracks:      make([]PlaylistTrack, len(info.Tracks)),
+        PlaylistID:  playlistID,
+    }
+    for i, track := range info.Tracks {
+        playlistInfo.Tracks[i] = PlaylistTrack{
+            Name:     EscapeHTML(track.Name),
+            Artist:   EscapeHTML(track.Artist),
+            URL:      track.URL,
+            Duration: track.Duration,
+            SongID:   ExtractSpotifyID(track.URL),
+        }
+    }
+    return playlistInfo, nil
+}
+
+func FormatSongCaption(songName, artist string, duration int) string {
+    return fmt.Sprintf("<b>%s</b>\n\n <b>Artist:</b> %s\n <b>Duration:</b> %d seconds", EscapeHTML(songName), EscapeHTML(artist), duration)
+}
+
+func GenerateRandomID() string {
+    bytes := make([]byte, 8)
+    rand.Read(bytes)
+    return hex.EncodeToString(bytes)
 }
 
 func HandleSpotify(b *gotgbot.Bot, ctx *ext.Context) error {
-	userID := ctx.EffectiveMessage.From.Id
-	
-	if isUserProcessing(userID) {
-		_, err := ctx.EffectiveMessage.Reply(b, 
-			"⚠️ You already have a task processing. Please wait for it to finish before sending another request.", 
-			nil)
-		return err
-	}
+    userID := ctx.EffectiveMessage.From.Id
+    chatID := ctx.EffectiveChat.Id
+    chatType := ctx.EffectiveChat.Type
 
-	setUserProcessing(userID, true)
-	defer setUserProcessing(userID, false)
+    if isUserProcessing(userID) {
+        _, err := ctx.EffectiveMessage.Reply(b,
+            " You already have an ongoing task. Please wait for it to finish before sending another request.",
+            nil)
+        return err
+    }
 
-	statusMsg, err := ctx.EffectiveMessage.Reply(b, "🎵 Processing Spotify link...", nil)
-	if err != nil {
-		return err
-	}
+    url := ctx.EffectiveMessage.Text
+    url = strings.Split(url, "?")[0]
+    playlistID := ExtractSpotifyID(url)
+    if playlistID == "" {
+        ctx.EffectiveMessage.Reply(b, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
+        return nil
+    }
 
-	client := dlkitgo.NewClient()
-	
-	url := ctx.EffectiveMessage.Text
-	result, err := client.Spotify.Stream(url)
-	if err != nil {
-		statusMsg.Delete(b, nil)
-		_, err = ctx.EffectiveMessage.Reply(b, fmt.Sprintf("❌ Error processing Spotify link: %v", err), nil)
-		return err
-	}
+    typ := detectType(url)
+    if typ == "track" {
+        return handleSingleSpotifyTrackByURL(b, ctx, url, userID)
+    }
 
-	if len(result.Source) == 0 {
-		statusMsg.Delete(b, nil)
-		_, err = ctx.EffectiveMessage.Reply(b, "❌ No tracks found in this Spotify link.", nil)
-		return err
-	}
+    if typ == "playlist" || typ == "album" {
+        info, err := GetSpotifyInfoByID(playlistID, typ)
+        if err != nil {
+            ctx.EffectiveMessage.Reply(b, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
+            return nil
+        }
 
-	contentType := getSpotifyContentType(&result)
-	trackCount := len(result.Source)
-	
-	statusText := fmt.Sprintf("📥 Found %d track(s) (%s)\nStarting download...", trackCount, contentType)
-	statusMsg.EditText(b, statusText, nil)
+        setUserProcessing(userID, true)
+        defer setUserProcessing(userID, false)
 
-	if trackCount > 1 {
-		err = handleMultipleSpotifyTracks(b, ctx, &result, statusMsg)
-	} else {
-		err = handleSingleSpotifyTrack(b, ctx, &result, statusMsg)
-	}
+        cacheKey := encodePlaylistCallback(playlistID, typ)
+        playlistCacheMu.Lock()
+        playlistCache[cacheKey] = &CachedPlaylist{
+            Info:      info,
+            ExpiresAt: time.Now().Add(1 * time.Hour),
+        }
+        playlistCacheMu.Unlock()
 
-	return err
+        return sendPlaylistPageMessage(b, chatID, info, 0, userID, cacheKey, ctx.EffectiveMessage.MessageId, chatType)
+    }
+
+    ctx.EffectiveMessage.Reply(b, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
+    return nil
 }
 
-func getSpotifyContentType(result *spotify.StreamResult) string {
-	if len(result.Source) == 0 {
-		return "unknown"
-	}
-	
-	if len(result.Source) > 1 {
-		return "playlist/album"
-	}
-	return "track"
+func detectType(url string) string {
+    if strings.Contains(url, "/playlist/") {
+        return "playlist"
+    }
+    if strings.Contains(url, "/album/") {
+        return "album"
+    }
+    if strings.Contains(url, "/track/") {
+        return "track"
+    }
+    return "unknown"
 }
 
-func handleSingleSpotifyTrack(b *gotgbot.Bot, ctx *ext.Context, result *spotify.StreamResult, statusMsg *gotgbot.Message) error {
-	source := result.Source[0]
-	
-	statusMsg.EditText(b, fmt.Sprintf("📥 Downloading: %s - %s", source.Artist, source.Title), nil)
+func handleSingleSpotifyTrackByURL(b *gotgbot.Bot, ctx *ext.Context, url string, userID int64) error {
+    statusMsg, err := ctx.EffectiveMessage.Reply(b, " Processing Spotify track...", nil)
+    if err != nil {
+        return err
+    }
 
-	opts := &gotgbot.SendAudioOpts{
-		Caption:   fmt.Sprintf("%s - %s", source.Artist, source.Title),
-		Title:     source.Title,
-		Performer: source.Artist,
-		Duration:  int64(source.Duration),
-		ReplyParameters: &gotgbot.ReplyParameters{
-			MessageId: ctx.EffectiveMessage.MessageId,
-		},
-	}
+    trackID := ExtractSpotifyID(url)
+    if trackID == "" {
+        statusMsg.Delete(b, nil)
+        ctx.EffectiveMessage.Reply(b, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
+        return nil
+    }
 
-	_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), opts)
+    statusMsg.Delete(b, nil)
 
-	statusMsg.Delete(b, nil)
-	return err
+    callbackData := fmt.Sprintf("song_%d_%s", userID, trackID)
+    go downloadTrackFromCallback(b, ctx.EffectiveChat.Id, callbackData, ctx.EffectiveMessage.MessageId)
+
+    return nil
 }
 
-func handleMultipleSpotifyTracks(b *gotgbot.Bot, ctx *ext.Context, result *spotify.StreamResult, statusMsg *gotgbot.Message) error {
-	totalTracks := len(result.Source)
-	
-	for i, source := range result.Source {
-		progressMsg := fmt.Sprintf("📥 Downloading %d/%d: %s - %s", 
-			i+1, totalTracks, source.Artist, source.Title)
-		statusMsg.EditText(b, progressMsg, nil)
+func downloadTrackFromCallback(b *gotgbot.Bot, chatID int64, callbackData string, replyToMsgID int64) {
+    parts := strings.Split(callbackData, "_")
+    if len(parts) != 3 {
+        return
+    }
 
-		err := sendWithFloodWait(b, ctx, source, i+1, totalTracks)
-		if err != nil {
-			statusMsg.EditText(b, fmt.Sprintf("❌ Error at track %d: %v", i+1, err), nil)
-			return err
-		}
+    trackID := parts[2]
 
-		if i < totalTracks-1 {
-			time.Sleep(2 * time.Second)
-		}
-	}
+    progressMsg, err := b.SendMessage(chatID, " <b>Downloading...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
+        ParseMode: "HTML",
+        ReplyParameters: &gotgbot.ReplyParameters{
+            MessageId: replyToMsgID,
+        },
+    })
+    if err != nil {
+        return
+    }
 
-	statusMsg.EditText(b, fmt.Sprintf("✅ Successfully uploaded %d track(s)!", totalTracks), nil)
-	return nil
+    trackURL := fmt.Sprintf("https://open.spotify.com/track/%s", trackID)
+    stream, err := GetTrackStream(trackURL)
+    if err != nil {
+        b.EditMessageText(" Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.EditMessageTextOpts{ChatId: chatID, MessageId: progressMsg.MessageId})
+        return
+    }
+    if len(stream.Source) == 0 {
+        b.EditMessageText(" Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.EditMessageTextOpts{ChatId: chatID, MessageId: progressMsg.MessageId})
+        return
+    }
+    source := stream.Source[0]
+    caption := FormatSongCaption(source.Title, source.Artist, source.Duration)
+    audioOpts := &gotgbot.SendAudioOpts{
+        Caption:   caption,
+        Title:     source.Title,
+        Performer: source.Artist,
+        Duration:  int64(source.Duration),
+        ParseMode: "HTML",
+    }
+    _, err = b.SendAudio(chatID, gotgbot.InputFileByURL(source.URL), audioOpts)
+    if err != nil {
+        b.EditMessageText(" Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.EditMessageTextOpts{ChatId: chatID, MessageId: progressMsg.MessageId})
+        return
+    }
+    b.DeleteMessage(chatID, progressMsg.MessageId, nil)
 }
 
-func sendWithFloodWait(b *gotgbot.Bot, ctx *ext.Context, source spotify.TrackSource, current, total int) error {
-	maxRetries := 3
-	retryDelay := 5 * time.Second
+func sendPlaylistPageMessage(b *gotgbot.Bot, chatID int64, info *PlaylistInfo, page int, userID int64, cacheKey string, replyToMsgID int64, chatType string) error {
+    totalTracks := len(info.Tracks)
+    totalPages := (totalTracks + 9) / 10
+    start := page * 10
+    end := start + 10
+    if end > totalTracks {
+        end = totalTracks
+    }
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		opts := &gotgbot.SendAudioOpts{
-			Caption:   fmt.Sprintf("%s - %s", source.Artist, source.Title),
-			Title:     source.Title,
-			Performer: source.Artist,
-			Duration:  int64(source.Duration),
-			ReplyParameters: &gotgbot.ReplyParameters{
-				MessageId: ctx.EffectiveMessage.MessageId,
-			},
-		}
+    var text string
+    if info.Type == "playlist" {
+        text = fmt.Sprintf(" <b>%s</b>\n\n <b>Total tracks:</b> %d\n\n<b>Page %d/%d</b>\n\n", info.Name, totalTracks, page+1, totalPages)
+    } else {
+        text = fmt.Sprintf(" <b>%s</b>\n\n <b>Total tracks:</b> %d\n\n<b>Page %d/%d</b>\n\n", info.Name, totalTracks, page+1, totalPages)
+    }
 
-		_, err := b.SendAudio(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), opts)
+    keyboard := buildStatelessKeyboard(info, page, userID, cacheKey, chatType)
+    replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
 
-		if err == nil {
-			return nil
-		}
+    if info.Image != "" {
+        if replyToMsgID != 0 {
+            _, err := b.SendPhoto(chatID, gotgbot.InputFileByURL(info.Image), &gotgbot.SendPhotoOpts{
+                Caption:         text,
+                ParseMode:       "HTML",
+                ReplyMarkup:     &replyMarkup,
+                ReplyParameters: &gotgbot.ReplyParameters{MessageId: replyToMsgID},
+            })
+            return err
+        }
+        _, err := b.SendPhoto(chatID, gotgbot.InputFileByURL(info.Image), &gotgbot.SendPhotoOpts{
+            Caption:     text,
+            ParseMode:   "HTML",
+            ReplyMarkup: &replyMarkup,
+        })
+        return err
+    }
 
-		if isFloodWaitError(err) {
-			waitTime := extractFloodWaitTime(err)
-			if waitTime > 0 {
-				time.Sleep(time.Duration(waitTime) * time.Second)
-			} else {
-				time.Sleep(retryDelay)
-			}
-			continue
-		}
-
-		return err
-	}
-
-	return fmt.Errorf("failed after %d attempts due to flood wait", maxRetries)
+    if replyToMsgID != 0 {
+        _, err := b.SendMessage(chatID, text, &gotgbot.SendMessageOpts{
+            ParseMode:       "HTML",
+            ReplyMarkup:     &replyMarkup,
+            ReplyParameters: &gotgbot.ReplyParameters{MessageId: replyToMsgID},
+        })
+        return err
+    }
+    _, err := b.SendMessage(chatID, text, &gotgbot.SendMessageOpts{
+        ParseMode:   "HTML",
+        ReplyMarkup: &replyMarkup,
+    })
+    return err
 }
 
-func isFloodWaitError(err error) bool {
-	errStr := err.Error()
-	return containsAny(errStr, []string{"Flood", "Too Many Requests", "429"})
+func buildStatelessKeyboard(info *PlaylistInfo, page int, userID int64, cacheKey string, chatType string) [][]gotgbot.InlineKeyboardButton {
+    totalTracks := len(info.Tracks)
+    start := page * 10
+    end := start + 10
+    if end > totalTracks {
+        end = totalTracks
+    }
+    keyboard := make([][]gotgbot.InlineKeyboardButton, 0)
+
+    for i := start; i < end; i++ {
+        track := info.Tracks[i]
+        trackName := track.Name
+        if len(trackName) > 35 {
+            trackName = trackName[:32] + "..."
+        }
+        artistName := track.Artist
+        if len(artistName) > 20 {
+            artistName = artistName[:17] + "..."
+        }
+        buttonText := fmt.Sprintf("%d. %s - %s", i+1, trackName, artistName)
+        keyboard = append(keyboard, []gotgbot.InlineKeyboardButton{{
+            Text:         buttonText,
+            CallbackData: fmt.Sprintf("song_%d_%s", userID, track.SongID),
+        }})
+    }
+
+    navRow := []gotgbot.InlineKeyboardButton{}
+    if page > 0 {
+        navRow = append(navRow, gotgbot.InlineKeyboardButton{Text: " Back", CallbackData: fmt.Sprintf("pg_%d_%d_%s", userID, page-1, cacheKey)})
+    }
+    if end < totalTracks {
+        navRow = append(navRow, gotgbot.InlineKeyboardButton{Text: "Next ", CallbackData: fmt.Sprintf("pg_%d_%d_%s", userID, page+1, cacheKey)})
+    }
+    if len(navRow) > 0 {
+        keyboard = append(keyboard, navRow)
+    }
+
+    if chatType == "private" {
+        keyboard = append(keyboard, []gotgbot.InlineKeyboardButton{{
+            Text:         " Download All",
+            CallbackData: fmt.Sprintf("dl_now_%d_%s", userID, cacheKey),
+        }})
+    } else {
+        deepLink := fmt.Sprintf("https://t.me/%s?start=dl_%s", BotUsername, cacheKey)
+        keyboard = append(keyboard, []gotgbot.InlineKeyboardButton{{
+            Text: " Download All (PM)",
+            Url:  deepLink,
+        }})
+    }
+
+    keyboard = append(keyboard, []gotgbot.InlineKeyboardButton{{
+        Text:         " Cancel",
+        CallbackData: "cancel",
+    }})
+    return keyboard
 }
 
-func extractFloodWaitTime(err error) int {
-	return 5
+func getOrFetchPlaylistInfo(cacheKey string) (*PlaylistInfo, error) {
+    playlistCacheMu.RLock()
+    cached, ok := playlistCache[cacheKey]
+    playlistCacheMu.RUnlock()
+    if ok && time.Now().Before(cached.ExpiresAt) {
+        return cached.Info, nil
+    }
+
+    playlistID, typ, err := decodePlaylistCallback(cacheKey)
+    if err != nil {
+        return nil, err
+    }
+
+    info, err := GetSpotifyInfoByID(playlistID, typ)
+    if err != nil {
+        return nil, err
+    }
+    playlistCacheMu.Lock()
+    playlistCache[cacheKey] = &CachedPlaylist{
+        Info:      info,
+        ExpiresAt: time.Now().Add(1 * time.Hour),
+    }
+    playlistCacheMu.Unlock()
+    return info, nil
 }
 
-func containsAny(s string, substrs []string) bool {
-	for _, substr := range substrs {
-		if contains(s, substr) {
-			return true
-		}
-	}
-	return false
+func HandlePlaylistCallback(b *gotgbot.Bot, ctx *ext.Context) error {
+    query := ctx.Update.CallbackQuery
+    data := query.Data
+    callerID := query.From.Id
+    chatID := query.Message.GetChat().Id
+    messageID := query.Message.GetMessageId()
+    chatType := query.Message.GetChat().Type
+
+    if data == "cancel" {
+        query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Cancelled"})
+        b.DeleteMessage(chatID, messageID, nil)
+        return nil
+    }
+
+    if strings.HasPrefix(data, "stop_dl_") {
+        parts := strings.Split(data, "_")
+        if len(parts) != 3 {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+            return nil
+        }
+        userID, _ := strconv.ParseInt(parts[2], 10, 64)
+        if userID != callerID {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "You can only stop your own downloads."})
+            return nil
+        }
+        exists, ch := GetCancelChannel(userID)
+        if exists {
+            close(ch)
+            RemoveCancelChannel(userID)
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Download stopped."})
+            b.EditMessageText(" Download stopped by user.", &gotgbot.EditMessageTextOpts{
+                ChatId:    chatID,
+                MessageId: messageID,
+            })
+        } else {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "No active download."})
+        }
+        return nil
+    }
+
+    if strings.HasPrefix(data, "retry_") {
+        parts := strings.Split(data, "_")
+        if len(parts) != 2 {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+            return nil
+        }
+        trackID := parts[1]
+        failedMutex.RLock()
+        failed, exists := failedTracks[trackID]
+        failedMutex.RUnlock()
+        if !exists {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Track not found."})
+            return nil
+        }
+        if failed.UserID != callerID {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "You can only retry your own failed tracks."})
+            return nil
+        }
+        query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Retrying download..."})
+        b.DeleteMessage(chatID, messageID, nil)
+        go downloadSingleTrackWithRetry(b, failed.ChatID, failed.Track, trackID, 1)
+        return nil
+    }
+
+    if strings.HasPrefix(data, "song_") {
+        parts := strings.Split(data, "_")
+        if len(parts) != 3 {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+            return nil
+        }
+        userID, err := strconv.ParseInt(parts[1], 10, 64)
+        if err != nil {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+            return nil
+        }
+        trackID := parts[2]
+
+        if userID != callerID {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: " You can only download songs you have access to."})
+            return nil
+        }
+
+        query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Downloading song...", ShowAlert: false})
+
+        progressMsg, err := b.SendMessage(chatID, " <b>Downloading...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
+            ParseMode: "HTML",
+            ReplyParameters: &gotgbot.ReplyParameters{
+                MessageId: messageID,
+            },
+        })
+        if err != nil {
+            return err
+        }
+
+        go downloadSingleTrackByID(b, chatID, progressMsg.MessageId, trackID)
+        return nil
+    }
+
+    parts := strings.Split(data, "_")
+    if len(parts) < 4 {
+        query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+        return nil
+    }
+
+    var prefix string
+    var userID int64
+    var extra string
+    var cacheKey string
+
+    if parts[0] == "pg" {
+        if len(parts) != 5 {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+            return nil
+        }
+        prefix = "pg"
+        userID, _ = strconv.ParseInt(parts[1], 10, 64)
+        extra = parts[2]
+        cacheKey = parts[3] + "_" + parts[4]
+    } else if parts[0] == "dl" && parts[1] == "now" {
+        if len(parts) != 4 {
+            query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+            return nil
+        }
+        prefix = "dl_now"
+        userID, _ = strconv.ParseInt(parts[2], 10, 64)
+        cacheKey = parts[3]
+    } else {
+        query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+        return nil
+    }
+
+    if userID != callerID {
+        query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: " You can only control your own playlists."})
+        return nil
+    }
+
+    info, err := getOrFetchPlaylistInfo(cacheKey)
+    if err != nil {
+        query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+        b.DeleteMessage(chatID, messageID, nil)
+        return nil
+    }
+
+    switch prefix {
+    case "pg":
+        page, _ := strconv.Atoi(extra)
+        query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Loading page..."})
+        return sendPlaylistPageMessage(b, chatID, info, page, userID, cacheKey, messageID, chatType)
+
+    case "dl_now":
+        query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Starting download of all tracks..."})
+        setUserProcessing(userID, true)
+        go downloadAllTracksToChat(b, chatID, userID, info)
+        return nil
+    }
+    return nil
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[:len(substr)] == substr
+func downloadSingleTrackByID(b *gotgbot.Bot, chatID int64, progressMsgID int64, trackID string) {
+    trackURL := fmt.Sprintf("https://open.spotify.com/track/%s", trackID)
+    stream, err := GetTrackStream(trackURL)
+    if err != nil {
+        b.EditMessageText(" Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.EditMessageTextOpts{ChatId: chatID, MessageId: progressMsgID})
+        return
+    }
+    if len(stream.Source) == 0 {
+        b.EditMessageText(" Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.EditMessageTextOpts{ChatId: chatID, MessageId: progressMsgID})
+        return
+    }
+    source := stream.Source[0]
+    caption := FormatSongCaption(source.Title, source.Artist, source.Duration)
+    audioOpts := &gotgbot.SendAudioOpts{
+        Caption:   caption,
+        Title:     source.Title,
+        Performer: source.Artist,
+        Duration:  int64(source.Duration),
+        ParseMode: "HTML",
+    }
+    _, err = b.SendAudio(chatID, gotgbot.InputFileByURL(source.URL), audioOpts)
+    if err != nil {
+        b.EditMessageText(" Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.EditMessageTextOpts{ChatId: chatID, MessageId: progressMsgID})
+        return
+    }
+    b.DeleteMessage(chatID, progressMsgID, nil)
+}
+
+func downloadSingleTrackWithRetry(b *gotgbot.Bot, chatID int64, track PlaylistTrack, retryID string, retryCount int) {
+    trackURL := fmt.Sprintf("https://open.spotify.com/track/%s", track.SongID)
+    client := dlkitgo.NewClient()
+    stream, err := client.Spotify.Stream(trackURL)
+    if err != nil || len(stream.Source) == 0 {
+        if retryCount >= 2 {
+            b.SendMessage(chatID, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.SendMessageOpts{ParseMode: "HTML"})
+            return
+        }
+        failID := GenerateRandomID()
+        failedMutex.Lock()
+        failedTracks[failID] = &FailedTrack{
+            Track:      track,
+            UserID:     0,
+            ChatID:     chatID,
+            RetryCount: retryCount + 1,
+        }
+        failedMutex.Unlock()
+        keyboard := [][]gotgbot.InlineKeyboardButton{{{
+            Text: " Try Again", CallbackData: fmt.Sprintf("retry_%s", failID),
+        }}}
+        replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
+        b.SendMessage(chatID, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.SendMessageOpts{
+            ParseMode:   "HTML",
+            ReplyMarkup: &replyMarkup,
+        })
+        return
+    }
+    source := stream.Source[0]
+    caption := FormatSongCaption(source.Title, source.Artist, source.Duration)
+    opts := &gotgbot.SendAudioOpts{
+        Caption:   caption,
+        Title:     source.Title,
+        Performer: source.Artist,
+        Duration:  int64(source.Duration),
+        ParseMode: "HTML",
+    }
+    _, err = b.SendAudio(chatID, gotgbot.InputFileByURL(source.URL), opts)
+    if err != nil {
+        if retryCount >= 2 {
+            b.SendMessage(chatID, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.SendMessageOpts{ParseMode: "HTML"})
+            return
+        }
+        failID := GenerateRandomID()
+        failedMutex.Lock()
+        failedTracks[failID] = &FailedTrack{
+            Track:      track,
+            UserID:     0,
+            ChatID:     chatID,
+            RetryCount: retryCount + 1,
+        }
+        failedMutex.Unlock()
+        keyboard := [][]gotgbot.InlineKeyboardButton{{{
+            Text: " Try Again", CallbackData: fmt.Sprintf("retry_%s", failID),
+        }}}
+        replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
+        b.SendMessage(chatID, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.SendMessageOpts{
+            ParseMode:   "HTML",
+            ReplyMarkup: &replyMarkup,
+        })
+        return
+    }
+}
+
+func HandleDownloadAllStart(b *gotgbot.Bot, ctx *ext.Context, encodedID string) error {
+    chat := ctx.EffectiveChat
+    if chat.Type != "private" {
+        ctx.EffectiveMessage.Reply(b, "Please use this command in private chat with me.", nil)
+        return nil
+    }
+    userID := ctx.EffectiveUser.Id
+
+    playlistID, typ, err := decodePlaylistCallback(encodedID)
+    if err != nil {
+        ctx.EffectiveMessage.Reply(b, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
+        return nil
+    }
+
+    cacheKey := encodePlaylistCallback(playlistID, typ)
+    info, err := getOrFetchPlaylistInfo(cacheKey)
+    if err != nil {
+        ctx.EffectiveMessage.Reply(b, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
+        return nil
+    }
+
+    playlistCacheMu.Lock()
+    if _, exists := playlistCache[cacheKey]; !exists {
+        playlistCache[cacheKey] = &CachedPlaylist{
+            Info:      info,
+            ExpiresAt: time.Now().Add(1 * time.Hour),
+        }
+    }
+    playlistCacheMu.Unlock()
+
+    return sendPlaylistPageMessage(b, chat.Id, info, 0, userID, cacheKey, ctx.EffectiveMessage.MessageId, "private")
+}
+
+func downloadAllTracksToChat(b *gotgbot.Bot, chatID int64, userID int64, info *PlaylistInfo) {
+    defer setUserProcessing(userID, false)
+    total := len(info.Tracks)
+    success := 0
+    fail := 0
+    failedList := make([]PlaylistTrack, 0)
+
+    cancelChan := make(chan bool)
+    SetCancelChannel(userID, cancelChan)
+    defer func() { RemoveCancelChannel(userID) }()
+
+    stopButton := gotgbot.InlineKeyboardMarkup{
+        InlineKeyboard: [][]gotgbot.InlineKeyboardButton{{
+            {Text: " Stop Download", CallbackData: fmt.Sprintf("stop_dl_%d", userID)},
+        }},
+    }
+    statusMsg, err := b.SendMessage(chatID, fmt.Sprintf(" Downloading %d tracks...\n\nProgress: 0/%d\n Success: 0\n Failed: 0", total, total), &gotgbot.SendMessageOpts{
+        ReplyMarkup: stopButton,
+    })
+    if err != nil {
+        return
+    }
+
+    for i, track := range info.Tracks {
+        select {
+        case <-cancelChan:
+            b.EditMessageText(" Download cancelled by user.", &gotgbot.EditMessageTextOpts{
+                ChatId:    chatID,
+                MessageId: statusMsg.MessageId,
+                ParseMode: "HTML",
+            })
+            return
+        default:
+        }
+
+        client := dlkitgo.NewClient()
+        stream, err := client.Spotify.Stream(track.URL)
+        if err != nil || len(stream.Source) == 0 {
+            fail++
+            failedList = append(failedList, track)
+        } else {
+            source := stream.Source[0]
+            caption := FormatSongCaption(source.Title, source.Artist, source.Duration)
+            opts := &gotgbot.SendAudioOpts{
+                Caption:   caption,
+                Title:     source.Title,
+                Performer: source.Artist,
+                Duration:  int64(source.Duration),
+                ParseMode: "HTML",
+            }
+            _, err = b.SendAudio(chatID, gotgbot.InputFileByURL(source.URL), opts)
+            if err != nil {
+                fail++
+                failedList = append(failedList, track)
+            } else {
+                success++
+            }
+        }
+
+        progressText := fmt.Sprintf(" Downloading %d tracks...\n\nProgress: %d/%d\n Success: %d\n Failed: %d", total, i+1, total, success, fail)
+        b.EditMessageText(progressText, &gotgbot.EditMessageTextOpts{
+            ChatId:      chatID,
+            MessageId:   statusMsg.MessageId,
+            ParseMode:   "HTML",
+            ReplyMarkup: stopButton,
+        })
+        if i < total-1 {
+            time.Sleep(900 * time.Millisecond)
+        }
+    }
+
+    finalText := fmt.Sprintf(" <b>Playlist Download Complete!</b>\n\n Total: %d\n Success: %d\n Failed: %d", total, success, fail)
+    b.EditMessageText(finalText, &gotgbot.EditMessageTextOpts{
+        ChatId:    chatID,
+        MessageId: statusMsg.MessageId,
+        ParseMode: "HTML",
+    })
+
+    for _, failed := range failedList {
+        failID := GenerateRandomID()
+        failedMutex.Lock()
+        failedTracks[failID] = &FailedTrack{
+            Track:      failed,
+            UserID:     userID,
+            ChatID:     chatID,
+            RetryCount: 0,
+        }
+        failedMutex.Unlock()
+        keyboard := [][]gotgbot.InlineKeyboardButton{{{
+            Text: " Try Again", CallbackData: fmt.Sprintf("retry_%s", failID),
+        }}}
+        replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
+        b.SendMessage(chatID, " Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.SendMessageOpts{
+            ParseMode:   "HTML",
+            ReplyMarkup: &replyMarkup,
+        })
+    }
 }
