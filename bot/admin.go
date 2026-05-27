@@ -270,7 +270,7 @@ func EvalCmd(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	msgJSON, err := json.Marshal(msg)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	impts, code := importsEval(codef)
@@ -284,6 +284,7 @@ func EvalCmd(b *gotgbot.Bot, ctx *ext.Context) error {
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/PaulSonOfLars/gotgbot/v2"
 )
 
@@ -295,8 +296,9 @@ func main() {
 		fmt.Println("Bot Error:", err)
 		return
 	}
-    
+
 	rawJSON := `+"`"+`%s`+"`"+`
+
 	m := new(gotgbot.Message)
 	if err := json.Unmarshal([]byte(rawJSON), m); err != nil {
 		fmt.Println("Unmarshal Error:", err)
@@ -308,8 +310,10 @@ func main() {
 		r = m.ReplyToMessage
 	}
 
-	%s
-	
+	{
+		%s
+	}
+
 	_ = b
 	_ = m
 	_ = r
@@ -317,12 +321,15 @@ func main() {
 `, impts, botToken, string(msgJSON), code)
 
 	if err := os.WriteFile(tmpFileName, []byte(fileContent), 0644); err != nil {
-		return nil
+		return err
 	}
 	defer os.Remove(tmpFileName)
 
 	cmd := exec.Command("go", "run", tmpFileName)
-	var out, stderr bytes.Buffer
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
@@ -331,12 +338,25 @@ func main() {
 	output := out.String()
 	errOut := stderr.String()
 
-	res := fmt.Sprintf("<b>📝 Code:</b>\n<pre language='go'>%s</pre>\n\n", html.EscapeString(codef))
+	if runErr != nil && errOut == "" {
+		errOut = runErr.Error()
+	}
 
-	if runErr != nil || errOut != "" {
-		res += fmt.Sprintf("<b>❌ Error:</b>\n<pre language='go'>%s</pre>", html.EscapeString(errOut))
+	res := fmt.Sprintf(
+		"<b>📝 Code:</b>\n<pre language='go'>%s</pre>\n\n",
+		html.EscapeString(codef),
+	)
+
+	if errOut != "" {
+		res += fmt.Sprintf(
+			"<b>❌ Error:</b>\n<pre language='go'>%s</pre>",
+			html.EscapeString(errOut),
+		)
 	} else if output != "" {
-		res += fmt.Sprintf("<b>✅ Output:</b>\n<pre language='go'>%s</pre>", html.EscapeString(output))
+		res += fmt.Sprintf(
+			"<b>✅ Output:</b>\n<pre language='go'>%s</pre>",
+			html.EscapeString(output),
+		)
 	} else {
 		res += "<b>✅ Success</b>"
 	}
