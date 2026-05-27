@@ -258,7 +258,7 @@ func EvalCmd(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	parts := strings.SplitN(msg.Text, " ", 2)
 	if len(parts) != 2 {
-		_, err := msg.Reply(b, "❌ Please provide code to evaluate.\nUsage: /eval <code>", &gotgbot.SendMessageOpts{
+		_, err := msg.Reply(b, "❌ Please provide code to evaluate.\nUsage: /eval code", &gotgbot.SendMessageOpts{
 			ParseMode: "HTML",
 		})
 		return err
@@ -278,10 +278,6 @@ func EvalCmd(b *gotgbot.Bot, ctx *ext.Context) error {
 	tmpFileName := fmt.Sprintf("eval_%d.go", time.Now().UnixNano())
 
 	botToken := os.Getenv("TOKEN")
-	if botToken == "" {
-		_, _, _ = statusMsg.EditText(b, "❌ Bot token not found in environment", nil)
-		return nil
-	}
 
 	fileContent := fmt.Sprintf(`package main
 
