@@ -63,7 +63,13 @@ func main() {
 	dispatcher.AddHandler(handlers.NewMessage(nil, bot.HandleMessage))
 
 	err = updater.StartPolling(b, &ext.PollingOpts{
-		DropPendingUpdates: true,		
+		DropPendingUpdates: true,	
+		GetUpdatesOpts: &gotgbot.GetUpdatesOpts{
+			Timeout: 0,
+			RequestOpts: &gotgbot.RequestOpts{
+				Timeout: 0,
+			},
+		},
 	})
 	if err != nil {
 		panic("failed to start polling: " + err.Error())
