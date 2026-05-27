@@ -64,6 +64,7 @@ func main() {
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt_inline_"), bot.HandleInlineYoutubeCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt_"), utils.HandleYoutubeCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("cancel"), utils.HandlePlaylistCallback))
+    dispatcher.HandleMsg("eval", bot.EvalCmd)
 	dispatcher.AddHandler(handlers.NewInlineQuery(inlinequery.All, bot.HandleInlineQuery))
 	dispatcher.AddHandler(handlers.NewMessage(nil, bot.HandleMessage))
 
