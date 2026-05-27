@@ -56,6 +56,7 @@ func main() {
 
 	dispatcher.AddHandler(handlers.NewCommand("song", bot.HandleSong))
 	dispatcher.AddHandler(handlers.NewCommand("donate", bot.Donate))
+	dispatcher.AddHandler(handlers.NewCommand("eval", bot.EvalCmd))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("song_"), bot.HandleSongCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("pg_"), utils.HandlePlaylistCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("tr_"), utils.HandlePlaylistCallback))
@@ -64,7 +65,6 @@ func main() {
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt_inline_"), bot.HandleInlineYoutubeCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt_"), utils.HandleYoutubeCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("cancel"), utils.HandlePlaylistCallback))
-    dispatcher.HandleMsg("eval", bot.EvalCmd)
 	dispatcher.AddHandler(handlers.NewInlineQuery(inlinequery.All, bot.HandleInlineQuery))
 	dispatcher.AddHandler(handlers.NewMessage(nil, bot.HandleMessage))
 
