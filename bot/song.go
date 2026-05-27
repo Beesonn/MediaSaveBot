@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Beesonn/MediaSaveBot/utils"
 	"github.com/PaulSonOfLars/gotgbot/v2"
@@ -149,6 +150,9 @@ func downloadAndSendSong(b *gotgbot.Bot, chatID int64, progressMsgID int64, trac
 		Title:     source.Title,
 		Performer: source.Artist,
 		Duration:  int64(source.Duration),
+		RequestOpts: &gotgbot.RequestOpts{
+            Timeout: time.Minute * 50,
+        },
 		ParseMode: "HTML",
 	}
 	_, err = b.SendAudio(chatID, gotgbot.InputFileByURL(source.URL), audioOpts)
