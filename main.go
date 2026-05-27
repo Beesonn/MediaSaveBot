@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"os"
-///	"time"
+	"time"
 
 	"github.com/Beesonn/MediaSaveBot/bot"
 	"github.com/Beesonn/MediaSaveBot/database"
@@ -25,7 +25,11 @@ func main() {
 		log.Printf("Warning: Database initialization failed: %v", err)
 	}
 
-	b, err := gotgbot.NewBot(token, nil)
+	b, err := gotgbot.NewBot(token, &gotgbot.BotOpts{
+		RequestOpts: &gotgbot.RequestOpts{
+			Timeout: time.Minute * 50,
+		},
+	})
 	if err != nil {
 		panic("failed to create new bot: " + err.Error())
 	}
@@ -41,6 +45,7 @@ func main() {
 	})
 
 	updater := ext.NewUpdater(dispatcher, nil)
+
 	dispatcher.AddHandler(handlers.NewCommand("start", bot.Start))
 
 	if database.IsMongoAvailable() {
@@ -63,17 +68,18 @@ func main() {
 	dispatcher.AddHandler(handlers.NewMessage(nil, bot.HandleMessage))
 
 	err = updater.StartPolling(b, &ext.PollingOpts{
-		DropPendingUpdates: true,	
+		DropPendingUpdates: true,
 		GetUpdatesOpts: &gotgbot.GetUpdatesOpts{
-			Timeout: 0,
+			Timeout: 50,
 			RequestOpts: &gotgbot.RequestOpts{
-				Timeout: 0,
+				Timeout: time.Minute * 50,
 			},
 		},
 	})
 	if err != nil {
 		panic("failed to start polling: " + err.Error())
 	}
+
 	log.Printf("%s has been started...\n", b.User.Username)
 
 	updater.Idle()
