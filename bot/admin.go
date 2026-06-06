@@ -52,7 +52,7 @@ func Stats(b *gotgbot.Bot, ctx *ext.Context) error {
     }
 
     if !database.IsMongoAvailable() {
-        _, err := ctx.EffectiveMessage.Reply(b, "❌ MongoDB is not configured. Please set MONGODB_URI environment variable to use this command.", nil)
+        _, err := ctx.EffectiveMessage.Reply(b, "❌ MongoDB is not configured.", nil)
         return err
     }
 
@@ -91,14 +91,14 @@ func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
     }
 
     if !database.IsMongoAvailable() {
-        _, err := ctx.EffectiveMessage.Reply(b, "❌ MongoDB is not configured. Please set MONGODB_URI environment variable to use this command.", nil)
+        _, err := ctx.EffectiveMessage.Reply(b, "❌ MongoDB is not configured.", nil)
         return err
     }
 
     broadcastMu.Lock()
     if broadcastActive {
         broadcastMu.Unlock()
-        _, err := ctx.EffectiveMessage.Reply(b, "⚠️ A broadcast is already in progress. Use stop button to stop it.", nil)
+        _, err := ctx.EffectiveMessage.Reply(b, "⚠️ A broadcast is already in progress.", nil)
         return err
     }
     broadcastActive = true
@@ -135,7 +135,7 @@ func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
         broadcastActive = false
         broadcastMu.Unlock()
         statusMsg.Delete(b, nil)
-        ctx.EffectiveMessage.Reply(b, "❌ No users found in database.", nil)
+        ctx.EffectiveMessage.Reply(b, "❌ No users found.", nil)
         return nil
     }
 
@@ -158,11 +158,10 @@ func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
             statusMsg.Delete(b, nil)
             finalText := fmt.Sprintf(
                 "⏸️ Broadcast Stopped\n\n"+
-                    "Total Users: %d\n"+
+                    "Total: %d\n"+
                     "✅ Success: %d\n"+
-                    "❌ Failed: %d\n"+
-                    "Stopped at: %d/%d",
-                total, success, failed, i, total,
+                    "❌ Failed: %d",
+                total, success, failed,
             )
             ctx.EffectiveMessage.Reply(b, finalText, nil)
             return nil
@@ -172,7 +171,6 @@ func Broadcast(b *gotgbot.Bot, ctx *ext.Context) error {
 
             if err != nil {
                 failed++
-                log.Printf("Failed to send to user %d: %v", user.UserID, err)
             } else {
                 success++
             }
@@ -228,13 +226,13 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
 
     args := strings.SplitN(ctx.EffectiveMessage.Text, " ", 2)
     if len(args) < 2 {
-        _, err := ctx.EffectiveMessage.Reply(b, "❌ Please provide a message to broadcast.\nUsage: /allbroadcast message", nil)
+        _, err := ctx.EffectiveMessage.Reply(b, "❌ Usage: /allbroadcast message", nil)
         return err
     }
 
     messageText := args[1]
 
-    statusMsg, err := ctx.EffectiveMessage.Reply(b, "📢 Broadcasting to all bot users...", nil)
+    statusMsg, err := ctx.EffectiveMessage.Reply(b, "📢 Broadcasting to all clone bot users...", nil)
     if err != nil {
         return err
     }
@@ -242,26 +240,13 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
     cloneBots, err := database.GetAllCloneBots(context.Background())
     if err != nil {
         statusMsg.Delete(b, nil)
-        ctx.EffectiveMessage.Reply(b, fmt.Sprintf("❌ Error getting bots: %v", err), nil)
+        ctx.EffectiveMessage.Reply(b, fmt.Sprintf("❌ Error: %v", err), nil)
         return err
     }
 
     if len(cloneBots) == 0 {
         statusMsg.Delete(b, nil)
         ctx.EffectiveMessage.Reply(b, "❌ No clone bots found.", nil)
-        return nil
-    }
-
-    mainUsers, err := database.GetAllUsers(context.Background())
-    if err != nil {
-        statusMsg.Delete(b, nil)
-        ctx.EffectiveMessage.Reply(b, fmt.Sprintf("❌ Error getting users: %v", err), nil)
-        return err
-    }
-
-    if len(mainUsers) == 0 {
-        statusMsg.Delete(b, nil)
-        ctx.EffectiveMessage.Reply(b, "❌ No users found in database.", nil)
         return nil
     }
 
@@ -282,20 +267,20 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
             continue
         }
 
-        botSuccess := 0
-        for _, user := range mainUsers {
+        users, err := database.GetCloneBotUsers(bot.BotID)
+        if err != nil {
+            failedBots++
+            continue
+        }
+
+        for _, user := range users {
             _, err := botClient.SendMessage(user.UserID, messageText, &gotgbot.SendMessageOpts{
                 ParseMode: "HTML",
             })
             if err == nil {
-                botSuccess++
                 totalSent++
             }
             time.Sleep(50 * time.Millisecond)
-        }
-        
-        if botSuccess == 0 {
-            failedBots++
         }
         
         time.Sleep(100 * time.Millisecond)
@@ -331,7 +316,7 @@ func RestartAllBots(b *gotgbot.Bot, ctx *ext.Context) error {
     cloneBots, err := database.GetAllCloneBots(context.Background())
     if err != nil {
         statusMsg.Delete(b, nil)
-        ctx.EffectiveMessage.Reply(b, fmt.Sprintf("❌ Error getting bots: %v", err), nil)
+        ctx.EffectiveMessage.Reply(b, fmt.Sprintf("❌ Error: %v", err), nil)
         return err
     }
 
@@ -344,7 +329,7 @@ func RestartAllBots(b *gotgbot.Bot, ctx *ext.Context) error {
     webhookURL := os.Getenv("WEBHOOK_URL")
     if webhookURL == "" {
         statusMsg.Delete(b, nil)
-        ctx.EffectiveMessage.Reply(b, "❌ WEBHOOK_URL environment variable not set.", nil)
+        ctx.EffectiveMessage.Reply(b, "❌ WEBHOOK_URL not set.", nil)
         return nil
     }
 
@@ -362,7 +347,7 @@ func RestartAllBots(b *gotgbot.Bot, ctx *ext.Context) error {
             
             percentage := (i + 1) * 100 / total
             progressText := fmt.Sprintf(
-                "🔄 Restarting all clone bots...\n\n"+
+                "🔄 Restarting...\n\n"+
                     "Progress: %d%% (%d/%d)\n"+
                     "✅ Success: %d\n"+
                     "❌ Failed: %d\n"+
@@ -382,7 +367,7 @@ func RestartAllBots(b *gotgbot.Bot, ctx *ext.Context) error {
             
             percentage := (i + 1) * 100 / total
             progressText := fmt.Sprintf(
-                "🔄 Restarting all clone bots...\n\n"+
+                "🔄 Restarting...\n\n"+
                     "Progress: %d%% (%d/%d)\n"+
                     "✅ Success: %d\n"+
                     "❌ Failed: %d\n"+
@@ -411,7 +396,7 @@ func RestartAllBots(b *gotgbot.Bot, ctx *ext.Context) error {
 
         percentage := (i + 1) * 100 / total
         progressText := fmt.Sprintf(
-            "🔄 Restarting all clone bots...\n\n"+
+            "🔄 Restarting...\n\n"+
                 "Progress: %d%% (%d/%d)\n"+
                 "✅ Success: %d\n"+
                 "❌ Failed: %d\n"+
@@ -439,7 +424,7 @@ func RestartAllBots(b *gotgbot.Bot, ctx *ext.Context) error {
                 "🤖 Total Bots: %d\n"+
                 "✅ Success: %d\n"+
                 "❌ Failed: %d\n"+
-                "🗑️ Invalid Bots Removed: %d",
+                "🗑️ Removed: %d",
             total, success, failed, removed,
         )
     } else {
@@ -461,7 +446,7 @@ func HandleStopBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
 
     if !isAdmin(query.From.Id) {
         _, err := query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{
-            Text: "❌ You are not authorized to stop the broadcast.",
+            Text: "❌ Not authorized.",
         })
         return err
     }
@@ -473,7 +458,7 @@ func HandleStopBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
     broadcastMu.Unlock()
 
     _, err := query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{
-        Text: "🛑 Broadcast stopping...",
+        Text: "🛑 Stopping broadcast...",
     })
 
     return err
@@ -509,7 +494,7 @@ func EvalCmd(b *gotgbot.Bot, ctx *ext.Context) error {
 
     parts := strings.SplitN(msg.Text, " ", 2)
     if len(parts) != 2 {
-        _, err := msg.Reply(b, "❌ Please provide code to evaluate.\nUsage: /eval code", &gotgbot.SendMessageOpts{
+        _, err := msg.Reply(b, "❌ Usage: /eval code", &gotgbot.SendMessageOpts{
             ParseMode: "HTML",
         })
         return err
