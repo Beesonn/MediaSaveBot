@@ -267,11 +267,14 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
 
     totalSent := 0
     failedBots := 0
-    totalMessages := 0
 
     for _, bot := range cloneBots {
-        botToken := fmt.Sprintf("%d:", bot.BotID)
-        botClient, err := gotgbot.NewBot(botToken, &gotgbot.BotOpts{
+        if bot.BotToken == "" {
+            failedBots++
+            continue
+        }
+
+        botClient, err := gotgbot.NewBot(bot.BotToken, &gotgbot.BotOpts{
             DisableTokenCheck: true,
         })
         if err != nil {
@@ -290,7 +293,6 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
             }
             time.Sleep(50 * time.Millisecond)
         }
-        totalMessages += botSuccess
         
         if botSuccess == 0 {
             failedBots++
@@ -354,8 +356,24 @@ func RestartAllBots(b *gotgbot.Bot, ctx *ext.Context) error {
     botsToRemove := []int64{}
 
     for i, cloneBot := range cloneBots {
-        botToken := fmt.Sprintf("%d:", cloneBot.BotID)
-        botClient, err := gotgbot.NewBot(botToken, &gotgbot.BotOpts{
+        if cloneBot.BotToken == "" {
+            failed++
+            botsToRemove = append(botsToRemove, cloneBot.BotID)
+            
+            percentage := (i + 1) * 100 / total
+            progressText := fmt.Sprintf(
+                "🔄 Restarting all clone bots...\n\n"+
+                    "Progress: %d%% (%d/%d)\n"+
+                    "✅ Success: %d\n"+
+                    "❌ Failed: %d\n"+
+                    "🗑️ Removed: %d",
+                percentage, i+1, total, success, failed, removed,
+            )
+            statusMsg.EditText(b, progressText, nil)
+            continue
+        }
+
+        botClient, err := gotgbot.NewBot(cloneBot.BotToken, &gotgbot.BotOpts{
             DisableTokenCheck: true,
         })
         if err != nil {
@@ -379,7 +397,7 @@ func RestartAllBots(b *gotgbot.Bot, ctx *ext.Context) error {
             DropPendingUpdates: true,
         })
 
-        webhookEndpoint := fmt.Sprintf("%s/webhook/%s", webhookURL, botToken)
+        webhookEndpoint := fmt.Sprintf("%s/webhook/%s", webhookURL, cloneBot.BotToken)
         _, err = botClient.SetWebhook(webhookEndpoint, &gotgbot.SetWebhookOpts{
             DropPendingUpdates: true,
         })
