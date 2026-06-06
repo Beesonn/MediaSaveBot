@@ -251,13 +251,7 @@ func HandleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
             return nil
         }
         
-        existingBot, _ := database.GetCloneBotByID(botID)
-        if existingBot != nil {
-            ctx.EffectiveMessage.Reply(b, "⚠️ This bot has already been cloned. Each bot can only be cloned once.\n\nSupport: @XBOTSUPPORTS", nil)
-            return nil
-        }
-        
-        statusMsg, err := ctx.EffectiveMessage.Reply(b, "🔄 Creating your bot... Please wait.", nil)
+        statusMsg, err := ctx.EffectiveMessage.Reply(b, "🔄 Validating your bot token...", nil)
         if err != nil {
             return err
         }
@@ -273,6 +267,8 @@ func HandleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
             return nil
         }
 
+        statusMsg.EditText(b, "🔄 Setting up webhook...", nil)
+
         webhookURL = strings.TrimSuffix(webhookURL, "/")
         webhookEndpoint := fmt.Sprintf("%s/webhook/%s", webhookURL, botToken)
         
@@ -285,13 +281,20 @@ func HandleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
         })
         if err != nil {
             statusMsg.Delete(b, nil)
-            ctx.EffectiveMessage.Reply(b, "❌ Failed to create bot. Your bot token might be invalid or expired.\n\nPlease check your token and try again.\n\nSupport: @XBOTSUPPORTS", nil)
+            ctx.EffectiveMessage.Reply(b, "❌ Failed to setup webhook. Your bot token might be invalid or expired.\n\nPlease check your token and try again.\n\nSupport: @XBOTSUPPORTS", nil)
             return nil
         }
 
         go database.SaveCloneBot(cloneBot.User.Id, ctx.EffectiveUser.Id, cloneBot.User.Username, botToken)
 
-        successText := fmt.Sprintf("✅ Successfully created bot @%s\n\nYou can now use this bot to download media from Spotify, YouTube, Instagram, and Pinterest!\n\nEnjoy! 🎉", cloneBot.User.Username)
+        successText := fmt.Sprintf("✅ Successfully %s bot @%s\n\nYou can now use this bot to download media from Spotify, YouTube, Instagram, and Pinterest!\n\nEnjoy! 🎉", 
+            func() string {
+                existing, _ := database.GetCloneBotByID(botID)
+                if existing != nil {
+                    return "updated"
+                }
+                return "created"
+            }(), cloneBot.User.Username)
         
         statusMsg.Delete(b, nil)
         _, err = ctx.EffectiveMessage.Reply(b, successText, nil)
