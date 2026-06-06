@@ -1,7 +1,6 @@
 package main
 
 import (
-    "context"
     "encoding/json"
     "fmt"
     "io"
@@ -152,11 +151,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
         log.Printf("Webhook received message from user %d in bot %s", update.Message.From.Id, botClient.User.Username)
     }
 
-    ctx := &ext.Context{
-        Update: &update,
-    }
-
-    err = globalDispatcher.ProcessUpdate(botClient, ctx, nil)
+    err = globalDispatcher.ProcessUpdate(botClient, &update, nil)
     if err != nil {
         log.Printf("Error processing update: %v", err)
     }
