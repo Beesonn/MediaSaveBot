@@ -1,6 +1,7 @@
 package main
 
 import (
+    "context"
     "encoding/json"
     "fmt"
     "io"
@@ -101,7 +102,7 @@ func setupHandlers(dispatcher *ext.Dispatcher) {
         dispatcher.AddHandler(handlers.NewCommand("stats", bot.Stats))
         dispatcher.AddHandler(handlers.NewCommand("broadcast", bot.Broadcast))
         dispatcher.AddHandler(handlers.NewCommand("allbroadcast", bot.AllBroadcast))
-        dispatcher.AddHandler(handlers.NewCommand("resetallbots", bot.ResetAllBots))
+        dispatcher.AddHandler(handlers.NewCommand("restartallbots", bot.RestartAllBots))
         dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("stop_broadcast"), bot.HandleStopBroadcast))
     }
 }
