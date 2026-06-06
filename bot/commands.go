@@ -33,7 +33,7 @@ func Start(b *gotgbot.Bot, ctx *ext.Context) error {
     }
 
     if database.IsMongoAvailable() {
-        if utils.GetMainBotID() != b.User.Username {
+        if utils.BotUsername != b.User.Username {
             go database.SaveCloneBot(b.User.Id, user.Id, b.User.Username)
             go database.SaveCloneBotUser(b.User.Id, user.Id, user.FirstName)
         } else {
@@ -42,20 +42,13 @@ func Start(b *gotgbot.Bot, ctx *ext.Context) error {
     }
 
     if chat.Type != "private" {
-        if utils.GetMainBotID() != b.User.Username {
-            text := "I'm a media download bot! Send me any link from Spotify, YouTube, Instagram, or Pinterest and I'll download it for you."
-            _, err := ctx.EffectiveMessage.Reply(b, text, nil)
-            return err
-        }
-        text := "Hey, I'm ready to download media just send me link"
+        text := "I'm a media download bot! Send me any link from Spotify, YouTube, Instagram, or Pinterest and I'll download it for you."
         _, err := ctx.EffectiveMessage.Reply(b, text, nil)
         return err
     }
 
     var text string
-    var keyboard [][]gotgbot.InlineKeyboardButton
-
-    if utils.GetMainBotID() != b.User.Username {
+    if utils.BotUsername != b.User.Username {
         text = fmt.Sprintf(`Hello! 👋
 
 I'm @%s! 📥
@@ -74,19 +67,6 @@ Usage: <code>/song song name</code>
 
 /donate - Support the bot with Telegram Stars
 Usage: <code>/donate 100</code>`, b.User.Username)
-
-        keyboard = [][]gotgbot.InlineKeyboardButton{
-            {
-                {Text: "🔍 Inline Search", SwitchInlineQueryCurrentChat: &[]string{""}[0]},
-            },
-            {
-                {Text: "👥 Support Group", Url: "https://t.me/XBOTSUPPORTS"},
-                {Text: "📢 Update Channel", Url: "https://t.me/BeesonsBots"},
-            },
-            {
-                {Text: "💻 Source Code", Url: "https://github.com/Beesonn/MediaSaveBot"},
-            },
-        }
     } else {
         text = `Hello! 👋
 
@@ -106,31 +86,31 @@ Usage: <code>/song song name</code>
 
 /donate - Support the bot with Telegram Stars
 Usage: <code>/donate 100</code>`
-
-        keyboard = [][]gotgbot.InlineKeyboardButton{
-            {
-                {Text: "🔍 Inline Search", SwitchInlineQueryCurrentChat: &[]string{""}[0]},
-            },
-            {
-                {Text: "🤖 Create your own bot", CallbackData: "create_bot"},
-            },
-            {
-                {Text: "👥 Support Group", Url: "https://t.me/XBOTSUPPORTS"},
-                {Text: "📢 Update Channel", Url: "https://t.me/BeesonsBots"},
-            },
-            {
-                {Text: "💻 Source Code", Url: "https://github.com/Beesonn/MediaSaveBot"},
-            },
-        }
     }
 
-    if database.IsMongoAvailable() && isAdmin(user.Id) && utils.GetMainBotID() == b.User.Username {
+    if database.IsMongoAvailable() && isAdmin(user.Id) && utils.BotUsername == b.User.Username {
         text += `
 
 /stats - Bot statistics (Admin only)
 /broadcast - Broadcast message (Admin only)
 /allbroadcast - Broadcast to all bot users (Admin only)
 /restartallbots - Restart all clone bots (Admin only)`
+    }
+
+    keyboard := [][]gotgbot.InlineKeyboardButton{
+        {
+            {Text: "🔍 Inline Search", SwitchInlineQueryCurrentChat: &[]string{""}[0]},
+        },
+        {
+            {Text: "🤖 Create your own bot", CallbackData: "create_bot"},
+        },
+        {
+            {Text: "👥 Support Group", Url: "https://t.me/XBOTSUPPORTS"},
+            {Text: "📢 Update Channel", Url: "https://t.me/BeesonsBots"},
+        },
+        {
+            {Text: "💻 Source Code", Url: "https://github.com/Beesonn/MediaSaveBot"},
+        },
     }
 
     replyMarkup := &gotgbot.InlineKeyboardMarkup{
@@ -154,8 +134,8 @@ func Donate(b *gotgbot.Bot, ctx *ext.Context) error {
         return err
     }
 
-    if utils.GetMainBotID() != b.User.Username {
-        mainBotUsername := utils.GetMainBotID()
+    if utils.BotUsername != b.User.Username {
+        mainBotUsername := utils.BotUsername
         text := fmt.Sprintf("💝 Support our project!\n\nClick the button below to donate to the main bot @%s", mainBotUsername)
         
         keyboard := [][]gotgbot.InlineKeyboardButton{
