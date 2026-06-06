@@ -252,8 +252,22 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
         return nil
     }
 
+    mainUsers, err := database.GetAllUsers(context.Background())
+    if err != nil {
+        statusMsg.Delete(b, nil)
+        ctx.EffectiveMessage.Reply(b, fmt.Sprintf("❌ Error getting users: %v", err), nil)
+        return err
+    }
+
+    if len(mainUsers) == 0 {
+        statusMsg.Delete(b, nil)
+        ctx.EffectiveMessage.Reply(b, "❌ No users found in database.", nil)
+        return nil
+    }
+
     totalSent := 0
     failedBots := 0
+    totalMessages := 0
 
     for _, bot := range cloneBots {
         botToken := fmt.Sprintf("%d:", bot.BotID)
@@ -265,21 +279,24 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
             continue
         }
 
-        users, err := database.GetCloneBotUsers(bot.BotID)
-        if err != nil {
-            failedBots++
-            continue
-        }
-
-        for _, user := range users {
+        botSuccess := 0
+        for _, user := range mainUsers {
             _, err := botClient.SendMessage(user.UserID, messageText, &gotgbot.SendMessageOpts{
                 ParseMode: "HTML",
             })
             if err == nil {
+                botSuccess++
                 totalSent++
             }
             time.Sleep(50 * time.Millisecond)
         }
+        totalMessages += botSuccess
+        
+        if botSuccess == 0 {
+            failedBots++
+        }
+        
+        time.Sleep(100 * time.Millisecond)
     }
 
     statusMsg.Delete(b, nil)
