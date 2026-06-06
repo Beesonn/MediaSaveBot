@@ -112,8 +112,6 @@ func SaveCloneBot(botID, ownerID int64, username, botToken string) {
         _, err := cloneBotCollection.UpdateOne(context.Background(), filter, update)
         if err != nil {
             log.Printf("error updating clone bot: %v", err)
-        } else {
-            log.Printf("Clone bot %d updated successfully", botID)
         }
         return
     }
@@ -129,8 +127,6 @@ func SaveCloneBot(botID, ownerID int64, username, botToken string) {
     _, err := cloneBotCollection.InsertOne(context.Background(), cloneBot)
     if err != nil {
         log.Printf("error saving clone bot: %v", err)
-    } else {
-        log.Printf("Clone bot %d saved successfully", botID)
     }
 }
 
