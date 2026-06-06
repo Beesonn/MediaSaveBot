@@ -33,7 +33,6 @@ func Start(b *gotgbot.Bot, ctx *ext.Context) error {
 
     if database.IsMongoAvailable() {
         if utils.BotUsername != b.User.Username {
-            go database.SaveCloneBot(b.User.Id, user.Id, b.User.Username, "")
             go database.SaveCloneBotUser(b.User.Id, user.Id, user.FirstName)
         } else {
             go database.SaveUser(context.Background(), user.FirstName, user.Id)
@@ -202,17 +201,16 @@ func HandleCreateBotCallback(b *gotgbot.Bot, ctx *ext.Context) error {
 
     text := `🤖 <b>Create your own bot like me!</b>
 
-Follow these steps to create your own bot:
+Follow these steps:
 
 <b>Step 1:</b>
 Create a bot from @BotFather
 • Send /newbot to @BotFather
-• Give it a good name
-• Then provide a username (must end with 'bot')
+• Give it a name
+• Choose a username (must end with 'bot')
 
 <b>Step 2:</b>
 Copy the bot token from @BotFather and send it to me
-Example: <code>1234567890:ABCdefGHIjklMNOpqrsTUVwxyz-12345</code>
 
 <b>Step 3:</b>
 I'll create a bot like me for you automatically!
@@ -220,7 +218,7 @@ I'll create a bot like me for you automatically!
 <b>Step 4:</b>
 Enjoy your own media download bot! 🎉
 
-If you have any doubts, don't hesitate to ask here: @XBOTSUPPORTS`
+Support: @XBOTSUPPORTS`
 
     _, err := b.SendMessage(query.Message.GetChat().Id, text, &gotgbot.SendMessageOpts{
         ParseMode: "HTML",
@@ -240,6 +238,7 @@ func HandleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
     if botTokenRegex.MatchString(text) {
         webhookURL := os.Getenv("WEBHOOK_URL")
         if webhookURL == "" {
+            ctx.EffectiveMessage.Reply(b, "❌ Bot creation is not available right now.\n\nSupport: @XBOTSUPPORTS", nil)
             return nil
         }
         
@@ -255,31 +254,32 @@ func HandleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
             return nil
         }
         
-        existingBot, _ := database.GetCloneBotByID(botID)
-        if existingBot != nil && existingBot.BotToken == botToken {
-            ctx.EffectiveMessage.Reply(b, fmt.Sprintf("⚠️ This bot has already been created by you.\n\nYou already have bot @%s\n\nSupport: @XBOTSUPPORTS", existingBot.Username), nil)
+        statusMsg, err := ctx.EffectiveMessage.Reply(b, "🔄 Checking your bot token...", nil)
+        if err != nil {
+            return err
+        }
+
+        cloneBot, err := gotgbot.NewBot(botToken, &gotgbot.BotOpts{
+            RequestOpts: &gotgbot.RequestOpts{
+                Timeout: time.Minute * 50,
+            },
+        })
+        if err != nil {
+            statusMsg.Delete(b, nil)
+            ctx.EffectiveMessage.Reply(b, "❌ Invalid bot token. Please check your token from @BotFather.\n\nSupport: @XBOTSUPPORTS", nil)
             return nil
         }
-        
+
+        existingBot, _ := database.GetCloneBotByID(botID)
+        if existingBot != nil && existingBot.BotToken == botToken {
+            statusMsg.Delete(b, nil)
+            ctx.EffectiveMessage.Reply(b, fmt.Sprintf("⚠️ Bot @%s is already registered with me!\n\nUse /start to see available commands.", cloneBot.User.Username), nil)
+            return nil
+        }
+
         if existingBot != nil && existingBot.BotToken != botToken {
-            statusMsg, err := ctx.EffectiveMessage.Reply(b, "🔄 Updating your bot token...", nil)
-            if err != nil {
-                return err
-            }
-
-            cloneBot, err := gotgbot.NewBot(botToken, &gotgbot.BotOpts{
-                RequestOpts: &gotgbot.RequestOpts{
-                    Timeout: time.Minute * 50,
-                },
-            })
-            if err != nil {
-                statusMsg.Delete(b, nil)
-                ctx.EffectiveMessage.Reply(b, "❌ Invalid bot token. Please make sure you sent the correct token from @BotFather.\n\nSupport: @XBOTSUPPORTS", nil)
-                return nil
-            }
-
-            statusMsg.EditText(b, "🔄 Setting up webhook...", nil)
-
+            statusMsg.EditText(b, "🔄 Updating your bot...", nil)
+            
             webhookURL = strings.TrimSuffix(webhookURL, "/")
             webhookEndpoint := fmt.Sprintf("%s/webhook/%s", webhookURL, botToken)
             
@@ -292,38 +292,18 @@ func HandleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
             })
             if err != nil {
                 statusMsg.Delete(b, nil)
-                ctx.EffectiveMessage.Reply(b, "❌ Failed to setup webhook. Your bot token might be invalid or expired.\n\nPlease check your token and try again.\n\nSupport: @XBOTSUPPORTS", nil)
+                ctx.EffectiveMessage.Reply(b, "❌ Failed to setup your bot. Please try again.\n\nSupport: @XBOTSUPPORTS", nil)
                 return nil
             }
 
             go database.SaveCloneBot(cloneBot.User.Id, ctx.EffectiveUser.Id, cloneBot.User.Username, botToken)
 
-            botFullName := cloneBot.User.FirstName
-            if botFullName == "" {
-                botFullName = cloneBot.User.Username
-            }
-            successText := fmt.Sprintf("✅ Successfully updated bot %s\n\nYour bot token has been updated and webhook reconfigured!\n\nEnjoy! 🎉", botFullName)
-            
             statusMsg.Delete(b, nil)
-            _, err = ctx.EffectiveMessage.Reply(b, successText, nil)
-            return err
-        }
-        
-        statusMsg, err := ctx.EffectiveMessage.Reply(b, "🔄 Creating your bot... Please wait.", nil)
-        if err != nil {
-            return err
-        }
-
-        cloneBot, err := gotgbot.NewBot(botToken, &gotgbot.BotOpts{
-            RequestOpts: &gotgbot.RequestOpts{
-                Timeout: time.Minute * 50,
-            },
-        })
-        if err != nil {
-            statusMsg.Delete(b, nil)
-            ctx.EffectiveMessage.Reply(b, "❌ Invalid bot token. Please make sure you sent the correct token from @BotFather.\n\nSupport: @XBOTSUPPORTS", nil)
+            ctx.EffectiveMessage.Reply(b, fmt.Sprintf("✅ Bot @%s has been updated successfully!\n\nYou can now use your bot to download media.", cloneBot.User.Username), nil)
             return nil
         }
+        
+        statusMsg.EditText(b, "🔄 Setting up your bot...", nil)
 
         webhookURL = strings.TrimSuffix(webhookURL, "/")
         webhookEndpoint := fmt.Sprintf("%s/webhook/%s", webhookURL, botToken)
@@ -337,21 +317,15 @@ func HandleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
         })
         if err != nil {
             statusMsg.Delete(b, nil)
-            ctx.EffectiveMessage.Reply(b, "❌ Failed to create bot. Your bot token might be invalid or expired.\n\nPlease check your token and try again.\n\nSupport: @XBOTSUPPORTS", nil)
+            ctx.EffectiveMessage.Reply(b, "❌ Failed to create your bot. Please try again.\n\nSupport: @XBOTSUPPORTS", nil)
             return nil
         }
 
         go database.SaveCloneBot(cloneBot.User.Id, ctx.EffectiveUser.Id, cloneBot.User.Username, botToken)
 
-        botFullName := cloneBot.User.FirstName
-        if botFullName == "" {
-            botFullName = cloneBot.User.Username
-        }
-        successText := fmt.Sprintf("✅ Successfully created bot %s\n\nYou can now use this bot to download media from Spotify, YouTube, Instagram, and Pinterest!\n\nEnjoy! 🎉", botFullName)
-        
         statusMsg.Delete(b, nil)
-        _, err = ctx.EffectiveMessage.Reply(b, successText, nil)
-        return err
+        ctx.EffectiveMessage.Reply(b, fmt.Sprintf("✅ Bot @%s has been created successfully!\n\nYou can now use your bot to download media from Spotify, YouTube, Instagram, and Pinterest!\n\nEnjoy! 🎉", cloneBot.User.Username), nil)
+        return nil
     }
 
     instagramRegex := regexp.MustCompile(`(https?://)?(www\.)?(instagram\.com|instagr\.am)/.+`)
