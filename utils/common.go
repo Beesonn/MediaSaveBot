@@ -5,6 +5,16 @@ import (
     "strings"
 )
 
+var MainBotID string
+
+func SetMainBotID(botID string) {
+    MainBotID = botID
+}
+
+func GetMainBotID() string {
+    return MainBotID
+}
+
 func ExtractURLs(text string) []string {
     urlRegex := regexp.MustCompile(`https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
     return urlRegex.FindAllString(text, -1)
@@ -16,20 +26,17 @@ func ContainsURL(text string) bool {
 }
 
 func ExtractFirstURL(text string) string {
-    urls := ExtractURLs(text)
-    if len(urls) > 0 {
-        return urls[0]
-    }
-    return ""
-}
-
-func ExtractFirstURL(text string) string {
     urlRegex := regexp.MustCompile(`https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
     urls := urlRegex.FindAllString(text, -1)
     if len(urls) > 0 {
         return urls[0]
     }
     return ""
+}
+
+func ExtractBotToken(text string) string {
+    tokenRegex := regexp.MustCompile(`\d+:[\w-]+`)
+    return tokenRegex.FindString(text)
 }
 
 func CleanURL(url string) string {
