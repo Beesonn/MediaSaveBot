@@ -43,7 +43,6 @@ func main() {
     }
 
     utils.SetBotUsername(b.User.Username)
-    utils.SetMainBotID(b.User.Username)
 
     globalDispatcher = ext.NewDispatcher(&ext.DispatcherOpts{
         Error: func(b *gotgbot.Bot, ctx *ext.Context, err error) ext.DispatcherAction {
@@ -95,6 +94,7 @@ func setupHandlers(dispatcher *ext.Dispatcher) {
     dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt_inline_"), bot.HandleInlineYoutubeCallback))
     dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt_"), utils.HandleYoutubeCallback))
     dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("cancel"), utils.HandlePlaylistCallback))
+    dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("create_bot"), bot.HandleCreateBotCallback))
     dispatcher.AddHandler(handlers.NewInlineQuery(inlinequery.All, bot.HandleInlineQuery))
     dispatcher.AddHandler(handlers.NewMessage(nil, bot.HandleMessage))
 
