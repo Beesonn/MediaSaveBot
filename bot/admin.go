@@ -232,7 +232,7 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
 
     messageText := args[1]
 
-    statusMsg, err := ctx.EffectiveMessage.Reply(b, "📢 Broadcasting to all clone bot users...", nil)
+    statusMsg, err := ctx.EffectiveMessage.Reply(b, "📢 Broadcasting to all clone bot users...\n\nProgress: 0%", nil)
     if err != nil {
         return err
     }
@@ -250,13 +250,27 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
         return nil
     }
 
+    totalBots := len(cloneBots)
+    processedBots := 0
     totalSent := 0
     failedBots := 0
 
     for _, bot := range cloneBots {
+        processedBots++
+        
         if bot.BotToken == "" {
             log.Printf("❌ Bot @%s has empty token", bot.Username)
             failedBots++
+            
+            percentage := processedBots * 100 / totalBots
+            progressText := fmt.Sprintf(
+                "📢 Broadcasting to all clone bot users...\n\n"+
+                    "Progress: %d%% (%d/%d bots)\n"+
+                    "📨 Messages Sent: %d\n"+
+                    "❌ Failed Bots: %d",
+                percentage, processedBots, totalBots, totalSent, failedBots,
+            )
+            statusMsg.EditText(b, progressText, nil)
             continue
         }
 
@@ -266,6 +280,16 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
         if err != nil {
             log.Printf("❌ Failed to create bot client for @%s: %v", bot.Username, err)
             failedBots++
+            
+            percentage := processedBots * 100 / totalBots
+            progressText := fmt.Sprintf(
+                "📢 Broadcasting to all clone bot users...\n\n"+
+                    "Progress: %d%% (%d/%d bots)\n"+
+                    "📨 Messages Sent: %d\n"+
+                    "❌ Failed Bots: %d",
+                percentage, processedBots, totalBots, totalSent, failedBots,
+            )
+            statusMsg.EditText(b, progressText, nil)
             continue
         }
 
@@ -273,26 +297,76 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
         if err != nil {
             log.Printf("❌ Failed to get users for bot @%s: %v", bot.Username, err)
             failedBots++
+            
+            percentage := processedBots * 100 / totalBots
+            progressText := fmt.Sprintf(
+                "📢 Broadcasting to all clone bot users...\n\n"+
+                    "Progress: %d%% (%d/%d bots)\n"+
+                    "📨 Messages Sent: %d\n"+
+                    "❌ Failed Bots: %d",
+                percentage, processedBots, totalBots, totalSent, failedBots,
+            )
+            statusMsg.EditText(b, progressText, nil)
             continue
         }
 
         if len(users) == 0 {
+            percentage := processedBots * 100 / totalBots
+            progressText := fmt.Sprintf(
+                "📢 Broadcasting to all clone bot users...\n\n"+
+                    "Progress: %d%% (%d/%d bots)\n"+
+                    "📨 Messages Sent: %d\n"+
+                    "❌ Failed Bots: %d",
+                percentage, processedBots, totalBots, totalSent, failedBots,
+            )
+            statusMsg.EditText(b, progressText, nil)
             continue
         }
 
-        for _, user := range users {
+        botSuccess := 0
+        for idx, user := range users {
             _, err := botClient.SendMessage(user.UserID, messageText, &gotgbot.SendMessageOpts{
                 ParseMode: "HTML",
             })
             if err != nil {
                 log.Printf("❌ Bot @%s failed to send message to user %d: %v", bot.Username, user.UserID, err)
+                time.Sleep(100 * time.Millisecond)
             } else {
+                botSuccess++
                 totalSent++
+                
+                if idx%3 == 0 || idx == len(users)-1 {
+                    percentage := processedBots * 100 / totalBots
+                    progressText := fmt.Sprintf(
+                        "📢 Broadcasting to all clone bot users...\n\n"+
+                            "Progress: %d%% (%d/%d bots)\n"+
+                            "📨 Messages Sent: %d\n"+
+                            "❌ Failed Bots: %d\n"+
+                            "📤 Bot @%s: %d/%d users",
+                        percentage, processedBots, totalBots, totalSent, failedBots, bot.Username, botSuccess, len(users),
+                    )
+                    statusMsg.EditText(b, progressText, nil)
+                }
             }
-            time.Sleep(50 * time.Millisecond)
+            
+            time.Sleep(150 * time.Millisecond)
         }
         
-        time.Sleep(100 * time.Millisecond)
+        if botSuccess == 0 {
+            failedBots++
+        }
+        
+        percentage := processedBots * 100 / totalBots
+        progressText := fmt.Sprintf(
+            "📢 Broadcasting to all clone bot users...\n\n"+
+                "Progress: %d%% (%d/%d bots)\n"+
+                "📨 Messages Sent: %d\n"+
+                "❌ Failed Bots: %d",
+            percentage, processedBots, totalBots, totalSent, failedBots,
+        )
+        statusMsg.EditText(b, progressText, nil)
+        
+        time.Sleep(500 * time.Millisecond)
     }
 
     statusMsg.Delete(b, nil)
@@ -302,7 +376,7 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
             "🤖 Total Bots: %d\n"+
             "📨 Messages Sent: %d\n"+
             "❌ Failed Bots: %d",
-        len(cloneBots), totalSent, failedBots,
+        totalBots, totalSent, failedBots,
     )
     
     _, err = ctx.EffectiveMessage.Reply(b, finalText, nil)
@@ -435,7 +509,7 @@ func RestartAllBots(b *gotgbot.Bot, ctx *ext.Context) error {
                 "🤖 Total Bots: %d\n"+
                 "✅ Success: %d\n"+
                 "❌ Failed: %d\n"+
-                "🗑️ Removed: %d",
+                "🗑️ Invalid Bots Removed: %d",
             total, success, failed, removed,
         )
     } else {
