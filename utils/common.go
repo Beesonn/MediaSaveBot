@@ -35,7 +35,7 @@ func ExtractFirstURL(text string) string {
 }
 
 func ExtractBotToken(text string) string {
-    tokenRegex := regexp.MustCompile(`\d+:[\w-]+`)
+    tokenRegex := regexp.MustCompile(`\b[0-9]{9,11}:[a-zA-Z0-9_\-]{35}\b`)
     return tokenRegex.FindString(text)
 }
 
