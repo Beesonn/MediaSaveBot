@@ -187,13 +187,6 @@ func Donate(b *gotgbot.Bot, ctx *ext.Context) error {
 
 func HandleCreateBotCallback(b *gotgbot.Bot, ctx *ext.Context) error {
     query := ctx.Update.CallbackQuery
-    if query == nil {
-        return nil
-    }
-
-    if query.Data != "create_bot" {
-        return nil
-    }
 
     query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{})
 
