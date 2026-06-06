@@ -27,6 +27,7 @@ type User struct {
 
 type CloneBot struct {
     BotID     int64     `bson:"bot_id"`
+    BotToken  string    `bson:"bot_token"`
     OwnerID   int64     `bson:"owner_id"`
     Username  string    `bson:"username"`
     CreatedAt time.Time `bson:"created_at"`
@@ -96,7 +97,7 @@ func SaveUser(ctx context.Context, name string, usrid int64) {
     }
 }
 
-func SaveCloneBot(botID, ownerID int64, username string) {
+func SaveCloneBot(botID, ownerID int64, username, botToken string) {
     if !mongoAvailable {
         return
     }
@@ -108,6 +109,7 @@ func SaveCloneBot(botID, ownerID int64, username string) {
 
     cloneBot := &CloneBot{
         BotID:     botID,
+        BotToken:  botToken,
         OwnerID:   ownerID,
         Username:  username,
         CreatedAt: time.Now(),
