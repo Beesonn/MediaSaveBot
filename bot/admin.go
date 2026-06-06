@@ -255,6 +255,7 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
 
     for _, bot := range cloneBots {
         if bot.BotToken == "" {
+            log.Printf("❌ Bot @%s has empty token", bot.Username)
             failedBots++
             continue
         }
@@ -263,13 +264,19 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
             DisableTokenCheck: true,
         })
         if err != nil {
+            log.Printf("❌ Failed to create bot client for @%s: %v", bot.Username, err)
             failedBots++
             continue
         }
 
         users, err := database.GetCloneBotUsers(bot.BotID)
         if err != nil {
+            log.Printf("❌ Failed to get users for bot @%s: %v", bot.Username, err)
             failedBots++
+            continue
+        }
+
+        if len(users) == 0 {
             continue
         }
 
@@ -277,7 +284,9 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
             _, err := botClient.SendMessage(user.UserID, messageText, &gotgbot.SendMessageOpts{
                 ParseMode: "HTML",
             })
-            if err == nil {
+            if err != nil {
+                log.Printf("❌ Bot @%s failed to send message to user %d: %v", bot.Username, user.UserID, err)
+            } else {
                 totalSent++
             }
             time.Sleep(50 * time.Millisecond)
@@ -287,6 +296,7 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
     }
 
     statusMsg.Delete(b, nil)
+    
     finalText := fmt.Sprintf(
         "✅ Broadcast Completed!\n\n"+
             "🤖 Total Bots: %d\n"+
@@ -294,6 +304,7 @@ func AllBroadcast(b *gotgbot.Bot, ctx *ext.Context) error {
             "❌ Failed Bots: %d",
         len(cloneBots), totalSent, failedBots,
     )
+    
     _, err = ctx.EffectiveMessage.Reply(b, finalText, nil)
     return err
 }
