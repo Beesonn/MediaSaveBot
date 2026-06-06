@@ -23,6 +23,15 @@ func ExtractFirstURL(text string) string {
     return ""
 }
 
+func ExtractFirstURL(text string) string {
+    urlRegex := regexp.MustCompile(`https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
+    urls := urlRegex.FindAllString(text, -1)
+    if len(urls) > 0 {
+        return urls[0]
+    }
+    return ""
+}
+
 func CleanURL(url string) string {
     url = strings.Split(url, "?")[0]
     url = strings.Split(url, "&")[0]
