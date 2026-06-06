@@ -33,7 +33,7 @@ func Start(b *gotgbot.Bot, ctx *ext.Context) error {
 
     if database.IsMongoAvailable() {
         if utils.BotUsername != b.User.Username {
-            go database.SaveCloneBot(b.User.Id, user.Id, b.User.Username)
+            go database.SaveCloneBot(b.User.Id, user.Id, b.User.Username, "")
             go database.SaveCloneBotUser(b.User.Id, user.Id, user.FirstName)
         } else {
             go database.SaveUser(context.Background(), user.FirstName, user.Id)
@@ -186,6 +186,13 @@ func Donate(b *gotgbot.Bot, ctx *ext.Context) error {
 
 func HandleCreateBotCallback(b *gotgbot.Bot, ctx *ext.Context) error {
     query := ctx.Update.CallbackQuery
+    if query == nil {
+        return nil
+    }
+
+    if query.Data != "create_bot" {
+        return nil
+    }
 
     query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{})
 
@@ -282,7 +289,7 @@ func HandleMessage(b *gotgbot.Bot, ctx *ext.Context) error {
             return nil
         }
 
-        go database.SaveCloneBot(cloneBot.User.Id, ctx.EffectiveUser.Id, cloneBot.User.Username)
+        go database.SaveCloneBot(cloneBot.User.Id, ctx.EffectiveUser.Id, cloneBot.User.Username, botToken)
 
         successText := fmt.Sprintf("✅ Successfully created bot @%s\n\nYou can now use this bot to download media from Spotify, YouTube, Instagram, and Pinterest!\n\nEnjoy! 🎉", cloneBot.User.Username)
         
