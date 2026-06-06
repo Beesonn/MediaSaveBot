@@ -3,7 +3,6 @@ package bot
 import (
     "context"
     "fmt"
-    "log"
     "os"
     "regexp"
     "strconv"
@@ -212,7 +211,7 @@ Enjoy your own media download bot! 🎉
 
 If you have any doubts, don't hesitate to ask here: @XBOTSUPPORTS`
 
-    _, err := query.Message.Reply(b, text, &gotgbot.SendMessageOpts{
+    _, err := b.SendMessage(query.Message.GetChat().Id, text, &gotgbot.SendMessageOpts{
         ParseMode: "HTML",
     })
     return err
