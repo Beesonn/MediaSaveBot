@@ -95,7 +95,6 @@ func setupHandlers(dispatcher *ext.Dispatcher) {
     dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("cancel"), utils.HandlePlaylistCallback))
     dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("create_bot"), bot.HandleCreateBotCallback))
     dispatcher.AddHandler(handlers.NewInlineQuery(inlinequery.All, bot.HandleInlineQuery))
-    dispatcher.AddHandler(handlers.NewMessage(nil, bot.HandleMessage))
 
     if database.IsMongoAvailable() {
         dispatcher.AddHandler(handlers.NewCommand("stats", bot.Stats))
@@ -104,6 +103,7 @@ func setupHandlers(dispatcher *ext.Dispatcher) {
         dispatcher.AddHandler(handlers.NewCommand("restartallbots", bot.RestartAllBots))
         dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("stop_broadcast"), bot.HandleStopBroadcast))
     }
+    dispatcher.AddHandler(handlers.NewMessage(nil, bot.HandleMessage))
 }
 
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
