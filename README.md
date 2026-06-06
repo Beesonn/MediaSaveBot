@@ -14,6 +14,7 @@
 - 📌 **Pinterest** – Download images & videos from pins
 - 🔍 **Inline Mode** – Search and download from any chat
 - 📊 **Playlist Support** – Pagination & batch download
+- 🤖 **Clone Bot** – Create your own bot instance
 - ⭐ **Donations** – Support with Telegram Stars
 - 💻 **100% Open Source** – Free to use and modify
 
@@ -25,12 +26,28 @@
 | `/song` | Search and download a song | `/song never gonna give you up` |
 | `/donate` | Support the bot with Stars | `/donate 100` |
 
+### Admin Commands (Main Bot Only)
+
+| Command | Description |
+|---------|-------------|
+| `/stats` | View bot statistics |
+| `/broadcast` | Broadcast message to all users |
+| `/allbroadcast` | Broadcast to all clone bot users |
+| `/restartallbots` | Restart all clone bots |
+
 ## 📥 Supported Links
 
 - **Spotify** – `open.spotify.com/track`, `playlist`, `album`
 - **YouTube** – `youtu.be`, `youtube.com/watch`, `playlist`, `shorts`
 - **Instagram** – `instagram.com/p`, `reel`
 - **Pinterest** – `pinterest.com/pin`
+
+## 🤖 Create Your Own Bot
+
+1. Create a bot from [@BotFather](https://t.me/BotFather)
+2. Copy the bot token
+3. Send the token to the main bot
+4. Enjoy your own media download bot
 
 ## 🛠️ Installation
 
@@ -39,42 +56,33 @@
 - Telegram Bot Token (from [@BotFather](https://t.me/BotFather))
 
 **1. Clone the repository**
-```
 
-git clone https://github.com/Beesonn/MediaSaveBot.git
-cd MediaSaveBot
+`git clone https://github.com/Beesonn/MediaSaveBot.git`
 
-```
+`cd MediaSaveBot`
 
 **2. Install dependencies**
-```
 
-go mod tidy
-
-```
+`go mod tidy`
 
 **3. Set your bot token**
-```
 
-export TOKEN="your_telegram_bot_token"
-
-```
+`export TOKEN="your_telegram_bot_token"`
 
 **4. Run the bot**
-```
 
-go build .
-./MediaSaveBot
+`go build .`
 
-```
+`./MediaSaveBot`
 
 ### Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `TOKEN` | Yes | Bot token from @BotFather |
-| `ADMIN` | No | Admin user IDs (space-separated) |
-| `MONGODB_URI` | No | MongoDB for user statistics |
+| TOKEN | Yes | Bot token from @BotFather |
+| WEBHOOK_URL | No | Webhook URL for clone bots |
+| ADMIN | No | Admin user IDs (space-separated) |
+| MONGODB_URI | No | MongoDB for statistics |
 
 ## 💝 Support
 
