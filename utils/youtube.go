@@ -562,7 +562,3 @@ func downloadYoutubeAudio(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoID 
         })
     }
 }
-
-func isUserProcessing(userID int64) bool {
-    return false
-}
