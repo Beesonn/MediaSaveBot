@@ -16,7 +16,6 @@ import (
     "time"
 
     "github.com/Beesonn/MediaSaveBot/database"
-    "github.com/Beesonn/MediaSaveBot/utils"
     "github.com/PaulSonOfLars/gotgbot/v2"
     "github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
