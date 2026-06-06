@@ -56,6 +56,7 @@ func main() {
     webhookURL := os.Getenv("WEBHOOK_URL")
     if webhookURL != "" {
         log.Printf("Starting webhook server for clone bots on port 8080")
+        http.HandleFunc("/", healthHandler)
         http.HandleFunc("/webhook/", webhookHandler)
         go func() {
             log.Fatal(http.ListenAndServe(":8080", nil))
@@ -104,6 +105,11 @@ func setupHandlers(dispatcher *ext.Dispatcher) {
         dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("stop_broadcast"), bot.HandleStopBroadcast))
     }
     dispatcher.AddHandler(handlers.NewMessage(nil, bot.HandleMessage))
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+    fmt.Fprint(w, "OK")
 }
 
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
