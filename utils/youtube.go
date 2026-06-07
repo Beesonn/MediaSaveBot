@@ -91,6 +91,7 @@ func ExtractYoutubeID(urlStr string) string {
 func GetYoutubeInfo(rawURL string) (*YoutubeInfo, error) {
 	client := dlkitgo.NewClient()
 	info, err := client.Youtube.GetInfo(rawURL)
+	fmt.Println(err)
 	if err != nil {
 		return nil, fmt.Errorf("GetInfo failed: %v", err)
 	}
@@ -386,7 +387,6 @@ func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, ch
 	}
 
 	stream, err := GetYoutubeStream(url)
-	fmt.Println(err)
 	if err != nil {
 		statusMsg.Delete(b, nil)
 		ctx.EffectiveMessage.Reply(b, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
