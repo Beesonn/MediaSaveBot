@@ -386,6 +386,7 @@ func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, ch
 	}
 
 	stream, err := GetYoutubeStream(url)
+	fmt.Println(err)
 	if err != nil {
 		statusMsg.Delete(b, nil)
 		ctx.EffectiveMessage.Reply(b, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
