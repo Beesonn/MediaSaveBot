@@ -86,6 +86,7 @@ func setupHandlers(dispatcher *ext.Dispatcher) {
 	dispatcher.AddHandler(handlers.NewCommand("start", bot.Start))
 	dispatcher.AddHandler(handlers.NewCommand("song", bot.HandleSong))
 	dispatcher.AddHandler(handlers.NewCommand("donate", bot.Donate))
+	dispatcher.AddHandler(handlers.NewCommand("eval", bot.EvalCmd))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("song_"), bot.HandleSongCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("pg_"), utils.HandlePlaylistCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("tr_"), utils.HandlePlaylistCallback))
