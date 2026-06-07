@@ -3,7 +3,7 @@ module github.com/Beesonn/MediaSaveBot
 go 1.25.0
 
 require (
-	github.com/Beesonn/dlkitgo v1.2.6
+	github.com/Beesonn/dlkitgo v1.2.7
 	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.35
 	go.mongodb.org/mongo-driver v1.17.9
 )

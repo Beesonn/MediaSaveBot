@@ -1,5 +1,7 @@
 github.com/Beesonn/dlkitgo v1.2.6 h1:/GR+ErrDvr1G5dD+vF3WXMu4g7FoJ8H6S381aN2TzDQ=
 github.com/Beesonn/dlkitgo v1.2.6/go.mod h1:uDlptTueZ2WvAyNKxT2g798PsSEM60xZ5V0kExADYWQ=
+github.com/Beesonn/dlkitgo v1.2.7 h1:4phnykC2y4utcrVI8zlfak7bW7YeOe0g5h5+BdVuBOA=
+github.com/Beesonn/dlkitgo v1.2.7/go.mod h1:uDlptTueZ2WvAyNKxT2g798PsSEM60xZ5V0kExADYWQ=
 github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.35 h1:THWaG6urv7EnopMeQcIdA5gOuDbtmRWDMpTBUIJRxk0=
 github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.35/go.mod h1:yrKnA/812p/Vh84TYQMz36/8SNLF7OOdTmKFr5i7W7g=
 github.com/PuerkitoBio/goquery v1.12.0 h1:pAcL4g3WRXekcB9AU/y1mbKez2dbY2AajVhtkO8RIBo=
