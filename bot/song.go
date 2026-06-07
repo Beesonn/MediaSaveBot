@@ -151,8 +151,8 @@ func downloadAndSendSong(b *gotgbot.Bot, chatID int64, progressMsgID int64, trac
 		Performer: source.Artist,
 		Duration:  int64(source.Duration),
 		RequestOpts: &gotgbot.RequestOpts{
-            Timeout: time.Minute * 50,
-        },
+			Timeout: time.Minute * 50,
+		},
 		ParseMode: "HTML",
 	}
 	_, err = b.SendAudio(chatID, gotgbot.InputFileByURL(source.URL), audioOpts)
