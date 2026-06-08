@@ -95,17 +95,44 @@ func GetYoutubeStream(rawURL string) (*YoutubeStream, error) {
 		AudioURL:  "",
 	}
 
+	var selectedVideoURL string
+	var selectedAudioURL string
+
 	for _, source := range stream.Source {
 		if source.Type == "video" {
-			if youtubeStream.VideoURL == "" {
-				youtubeStream.VideoURL = source.URL
-			}
-		} else if source.Type == "audio" {
-			if youtubeStream.AudioURL == "" {
-				youtubeStream.AudioURL = source.URL
+			if strings.Contains(source.Quality, "144p") {
+				selectedVideoURL = source.URL
+				break
 			}
 		}
 	}
+	if selectedVideoURL == "" {
+		for _, source := range stream.Source {
+			if source.Type == "video" {
+				selectedVideoURL = source.URL
+				break
+			}
+		}
+	}
+	youtubeStream.VideoURL = selectedVideoURL
+
+	for _, source := range stream.Source {
+		if source.Type == "audio" {
+			if strings.Contains(source.Quality, "320kbps") {
+				selectedAudioURL = source.URL
+				break
+			}
+		}
+	}
+	if selectedAudioURL == "" {
+		for _, source := range stream.Source {
+			if source.Type == "audio" {
+				selectedAudioURL = source.URL
+				break
+			}
+		}
+	}
+	youtubeStream.AudioURL = selectedAudioURL
 
 	return youtubeStream, nil
 }
@@ -188,6 +215,12 @@ func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, ch
 		return nil
 	}
 
+	if stream.Duration > 900 {
+		statusMsg.Delete(b, nil)
+		ctx.EffectiveMessage.Reply(b, "❌ Videos longer than 15 minutes are not allowed due to Telegram file size limits.", nil)
+		return nil
+	}
+
 	statusMsg.Delete(b, nil)
 
 	durationMin := stream.Duration / 60
@@ -197,8 +230,8 @@ func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, ch
 
 	keyboard := [][]gotgbot.InlineKeyboardButton{
 		{
-			{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt#%d#%s#video", userID, videoID)},
-			{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt#%d#%s#audio", userID, videoID)},
+			{Text: "🎥 Video (144p MP4)", CallbackData: fmt.Sprintf("yt#%d#%s#video", userID, videoID)},
+			{Text: "🎵 Audio (320kbps MP3)", CallbackData: fmt.Sprintf("yt#%d#%s#audio", userID, videoID)},
 		},
 		{
 			{Text: "❌ Cancel", CallbackData: "cancel"},
@@ -299,14 +332,14 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 	var err error
 
 	if format == "video" {
-		statusMsg, err = b.SendMessage(chatID, "🎬 <b>Downloading video...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
+		statusMsg, err = b.SendMessage(chatID, "🎬 <b>Downloading video (144p)...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
 			ParseMode: "HTML",
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: messageID,
 			},
 		})
 	} else {
-		statusMsg, err = b.SendMessage(chatID, "🎵 <b>Downloading audio...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
+		statusMsg, err = b.SendMessage(chatID, "🎵 <b>Downloading audio (320kbps)...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
 			ParseMode: "HTML",
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: messageID,
@@ -321,6 +354,16 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 	if err != nil {
 		statusMsg.Delete(b, nil)
 		b.SendMessage(chatID, "❌ Failed to fetch media. Please try again.", &gotgbot.SendMessageOpts{
+			ReplyParameters: &gotgbot.ReplyParameters{
+				MessageId: messageID,
+			},
+		})
+		return
+	}
+
+	if stream.Duration > 900 {
+		statusMsg.Delete(b, nil)
+		b.SendMessage(chatID, "❌ Videos longer than 15 minutes are not allowed due to Telegram file size limits.", &gotgbot.SendMessageOpts{
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: messageID,
 			},
@@ -407,12 +450,12 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 
 func downloadYoutubeInline(b *gotgbot.Bot, videoURL, format string, inlineMsgID string) {
 	if format == "video" {
-		b.EditMessageText("🎬 <b>Downloading video...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
+		b.EditMessageText("🎬 <b>Downloading video (144p)...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
 			InlineMessageId: inlineMsgID,
 			ParseMode:       "HTML",
 		})
 	} else {
-		b.EditMessageText("🎵 <b>Downloading audio...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
+		b.EditMessageText("🎵 <b>Downloading audio (320kbps)...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
 			InlineMessageId: inlineMsgID,
 			ParseMode:       "HTML",
 		})
@@ -421,6 +464,13 @@ func downloadYoutubeInline(b *gotgbot.Bot, videoURL, format string, inlineMsgID 
 	stream, err := GetYoutubeStream(videoURL)
 	if err != nil {
 		b.EditMessageText("❌ Failed to fetch media. Please try again.", &gotgbot.EditMessageTextOpts{
+			InlineMessageId: inlineMsgID,
+		})
+		return
+	}
+
+	if stream.Duration > 900 {
+		b.EditMessageText("❌ Videos longer than 15 minutes are not allowed due to Telegram file size limits.", &gotgbot.EditMessageTextOpts{
 			InlineMessageId: inlineMsgID,
 		})
 		return
