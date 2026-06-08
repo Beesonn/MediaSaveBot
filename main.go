@@ -92,7 +92,7 @@ func setupHandlers(dispatcher *ext.Dispatcher) {
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("tr_"), utils.HandlePlaylistCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("dl_now_"), utils.HandlePlaylistCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("stop_dl_"), utils.HandlePlaylistCallback))
-	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt_inline_"), bot.HandleInlineYoutubeCallback))
+	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt#"), bot.HandleInlineYoutubeCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt_"), utils.HandleYoutubeCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("cancel"), utils.HandlePlaylistCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("create_bot"), bot.HandleCreateBotCallback))
