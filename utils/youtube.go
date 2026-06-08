@@ -44,6 +44,9 @@ type YoutubeStream struct {
 }
 
 func ExtractYoutubeID(urlStr string) string {
+	if idx := strings.Index(urlStr, "?si="); idx != -1 {
+		urlStr = urlStr[:idx]
+	}
 	if idx := strings.Index(urlStr, "&si="); idx != -1 {
 		urlStr = urlStr[:idx]
 	}
@@ -73,10 +76,8 @@ func ExtractYoutubeID(urlStr string) string {
 }
 
 func GetYoutubeInfo(rawURL string) (*YoutubeInfo, error) {
-	cleanURL := strings.Split(rawURL, "&si=")[0]
-	
 	client := dlkitgo.NewClient()
-	info, err := client.Youtube.GetInfo(cleanURL)
+	info, err := client.Youtube.GetInfo(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("GetInfo failed: %v", err)
 	}
@@ -96,15 +97,15 @@ func GetYoutubeInfo(rawURL string) (*YoutubeInfo, error) {
 			youtubeInfo.Videos = append(youtubeInfo.Videos, YoutubeVideo{
 				Name:     EscapeHTML(info.Name),
 				Duration: info.Videos[0].Duration,
-				URL:      cleanURL,
+				URL:      rawURL,
 				VideoID:  info.ID,
 			})
-		} else {
+		} else if info.ID != "" {
 			youtubeInfo.TotalVideos = 1
 			youtubeInfo.Videos = append(youtubeInfo.Videos, YoutubeVideo{
 				Name:     EscapeHTML(info.Name),
 				Duration: 0,
-				URL:      cleanURL,
+				URL:      rawURL,
 				VideoID:  info.ID,
 			})
 		}
@@ -114,11 +115,8 @@ func GetYoutubeInfo(rawURL string) (*YoutubeInfo, error) {
 }
 
 func GetYoutubeStream(rawURL string) (*YoutubeStream, error) {
-	cleanURL := strings.Split(rawURL, "&si=")[0]
-	fmt.Println(cleanURL)
-	
 	client := dlkitgo.NewClient()
-	stream, err := client.Youtube.Stream(cleanURL)
+	stream, err := client.Youtube.Stream(rawURL)
 	if err != nil {
 		return nil, err
 	}
@@ -197,12 +195,22 @@ func HandleYoutube(b *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 
-	cleanURL := strings.Split(rawURL, "&si=")[0]
+	cleanURL := rawURL
+	if idx := strings.Index(cleanURL, "?si="); idx != -1 {
+		cleanURL = cleanURL[:idx]
+	}
+	if idx := strings.Index(cleanURL, "&si="); idx != -1 {
+		cleanURL = cleanURL[:idx]
+	}
+	cleanURL = strings.Split(cleanURL, "?")[0]
+
 	videoID := ExtractYoutubeID(cleanURL)
 	if videoID == "" {
 		ctx.EffectiveMessage.Reply(b, "❌ Could not extract YouTube ID. Please check the link.", nil)
 		return nil
 	}
+
+	cleanURL = fmt.Sprintf("https://youtu.be/%s", videoID)
 
 	info, err := GetYoutubeInfo(cleanURL)
 	if err != nil {
