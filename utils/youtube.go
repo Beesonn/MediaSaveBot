@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Beesonn/dlkitgo"
@@ -18,17 +16,14 @@ import (
 )
 
 var (
-	youtubeCache   = make(map[string]*YoutubeCache)
-	youtubeCacheMu = &sync.RWMutex{}
-	httpClient     = &http.Client{}
+	httpClient = &http.Client{}
 )
 
 type YoutubeVideo struct {
-	Name        string
-	ChannelName string
-	Duration    int
-	URL         string
-	VideoID     string
+	Name     string
+	Duration int
+	URL      string
+	VideoID  string
 }
 
 type YoutubeInfo struct {
@@ -38,13 +33,6 @@ type YoutubeInfo struct {
 	Image       string
 	TotalVideos int
 	Videos      []YoutubeVideo
-	PlaylistID  string
-}
-
-type YoutubeCache struct {
-	Info      *YoutubeInfo
-	MessageID int64
-	ExpiresAt time.Time
 }
 
 type YoutubeStream struct {
@@ -66,7 +54,6 @@ func ExtractYoutubeID(urlStr string) string {
 		`youtube\.com/embed/([a-zA-Z0-9_-]+)`,
 		`youtube\.com/v/([a-zA-Z0-9_-]+)`,
 		`youtube\.com/shorts/([a-zA-Z0-9_-]+)`,
-		`playlist\?list=([a-zA-Z0-9_-]+)`,
 	}
 	for _, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
@@ -81,9 +68,6 @@ func ExtractYoutubeID(urlStr string) string {
 		if v := parsed.Query().Get("v"); v != "" {
 			return v
 		}
-		if list := parsed.Query().Get("list"); list != "" {
-			return list
-		}
 	}
 	return ""
 }
@@ -91,7 +75,6 @@ func ExtractYoutubeID(urlStr string) string {
 func GetYoutubeInfo(rawURL string) (*YoutubeInfo, error) {
 	client := dlkitgo.NewClient()
 	info, err := client.Youtube.GetInfo(rawURL)
-	fmt.Println(err)
 	if err != nil {
 		return nil, fmt.Errorf("GetInfo failed: %v", err)
 	}
@@ -103,29 +86,16 @@ func GetYoutubeInfo(rawURL string) (*YoutubeInfo, error) {
 		Image:       info.Image,
 		TotalVideos: 0,
 		Videos:      []YoutubeVideo{},
-		PlaylistID:  info.ID,
 	}
 
-	if info.Type == "playlist" {
-		for _, item := range info.Playlist {
-			youtubeInfo.Videos = append(youtubeInfo.Videos, YoutubeVideo{
-				Name:        EscapeHTML(item.Name),
-				ChannelName: EscapeHTML(item.ChannelName),
-				Duration:    item.Duration,
-				URL:         item.URL,
-				VideoID:     ExtractYoutubeID(item.URL),
-			})
-		}
-		youtubeInfo.TotalVideos = len(youtubeInfo.Videos)
-	} else if info.Type == "video" || info.Type == "shorts" {
+	if info.Type == "video" || info.Type == "shorts" {
 		if len(info.Videos) > 0 {
 			youtubeInfo.TotalVideos = 1
 			youtubeInfo.Videos = append(youtubeInfo.Videos, YoutubeVideo{
-				Name:        EscapeHTML(info.Name),
-				ChannelName: EscapeHTML(info.Videos[0].ChannelName),
-				Duration:    info.Videos[0].Duration,
-				URL:         rawURL,
-				VideoID:     info.ID,
+				Name:     EscapeHTML(info.Name),
+				Duration: info.Videos[0].Duration,
+				URL:      rawURL,
+				VideoID:  info.ID,
 			})
 		}
 	}
@@ -256,7 +226,6 @@ func HandleYoutube(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	userID := ctx.EffectiveMessage.From.Id
 	chatID := ctx.EffectiveChat.Id
-	chatType := ctx.EffectiveChat.Type
 
 	if isUserProcessing(userID) {
 		_, err := ctx.EffectiveMessage.Reply(b,
@@ -279,105 +248,11 @@ func HandleYoutube(b *gotgbot.Bot, ctx *ext.Context) error {
 	}
 
 	if info.Type == "playlist" {
-		if info.TotalVideos == 0 {
-			ctx.EffectiveMessage.Reply(b, "❌ No videos found in this playlist.", nil)
-			return nil
-		}
-		if info.TotalVideos == 1 {
-			return handleYoutubeVideo(b, ctx, info.Videos[0].URL, userID, chatID)
-		}
-		return handleYoutubePlaylist(b, ctx, info, userID, chatID, chatType)
+		ctx.EffectiveMessage.Reply(b, "❌ Playlists are not supported. Please send a video or shorts link only.", nil)
+		return nil
 	}
 
 	return handleYoutubeVideo(b, ctx, url, userID, chatID)
-}
-
-func handleYoutubePlaylist(b *gotgbot.Bot, ctx *ext.Context, info *YoutubeInfo, userID, chatID int64, chatType string) error {
-	cacheKey := fmt.Sprintf("yt_%s", info.PlaylistID)
-	youtubeCacheMu.Lock()
-	youtubeCache[cacheKey] = &YoutubeCache{
-		Info:      info,
-		ExpiresAt: time.Now().Add(1 * time.Hour),
-	}
-	youtubeCacheMu.Unlock()
-
-	return sendYoutubePlaylistPage(b, chatID, info, 0, userID, cacheKey, 0)
-}
-
-func sendYoutubePlaylistPage(b *gotgbot.Bot, chatID int64, info *YoutubeInfo, page int, userID int64, cacheKey string, botMsgID int64) error {
-	totalVideos := info.TotalVideos
-	if totalVideos == 0 {
-		return nil
-	}
-	totalPages := (totalVideos + 9) / 10
-	start := page * 10
-	end := start + 10
-	if end > totalVideos {
-		end = totalVideos
-	}
-
-	text := fmt.Sprintf("📺 <b>%s</b>\n\n📊 <b>Total videos:</b> %d\n\n<b>Page %d/%d</b>\n\n", info.Name, totalVideos, page+1, totalPages)
-
-	keyboard := make([][]gotgbot.InlineKeyboardButton, 0)
-
-	for i := start; i < end; i++ {
-		video := info.Videos[i]
-		videoName := video.Name
-		if len(videoName) > 35 {
-			videoName = videoName[:32] + "..."
-		}
-		durationMin := video.Duration / 60
-		durationSec := video.Duration % 60
-		buttonText := fmt.Sprintf("%d. 🎬 %s - %s (%d:%02d)", i+1, videoName, video.ChannelName, durationMin, durationSec)
-		keyboard = append(keyboard, []gotgbot.InlineKeyboardButton{{
-			Text:         buttonText,
-			CallbackData: fmt.Sprintf("yt_tr_%d_%s_%d", userID, cacheKey, i),
-		}})
-	}
-
-	navRow := []gotgbot.InlineKeyboardButton{}
-	if page > 0 {
-		navRow = append(navRow, gotgbot.InlineKeyboardButton{Text: "◀️ Back", CallbackData: fmt.Sprintf("yt_pg_%d_%s_%d", userID, cacheKey, page-1)})
-	}
-	if end < totalVideos {
-		navRow = append(navRow, gotgbot.InlineKeyboardButton{Text: "Next ▶️", CallbackData: fmt.Sprintf("yt_pg_%d_%s_%d", userID, cacheKey, page+1)})
-	}
-	if len(navRow) > 0 {
-		keyboard = append(keyboard, navRow)
-	}
-
-	keyboard = append(keyboard, []gotgbot.InlineKeyboardButton{{
-		Text:         "❌ Cancel",
-		CallbackData: "cancel",
-	}})
-
-	replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
-
-	if botMsgID == 0 {
-		sentMsg, err := b.SendMessage(chatID, text, &gotgbot.SendMessageOpts{
-			ParseMode:   "HTML",
-			ReplyMarkup: replyMarkup,
-		})
-		if err != nil {
-			return err
-		}
-		youtubeCacheMu.Lock()
-		if cached, exists := youtubeCache[cacheKey]; exists {
-			cached.MessageID = sentMsg.MessageId
-		}
-		youtubeCacheMu.Unlock()
-	} else {
-		_, _, err := b.EditMessageText(text, &gotgbot.EditMessageTextOpts{
-			ChatId:      chatID,
-			MessageId:   botMsgID,
-			ParseMode:   "HTML",
-			ReplyMarkup: replyMarkup,
-		})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, chatID int64) error {
@@ -435,6 +310,7 @@ func HandleYoutubeCallback(b *gotgbot.Bot, ctx *ext.Context) error {
 	videoID := parts[3]
 
 	if userID != query.From.Id {
+		query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "You can only download your own requests."})
 		return nil
 	}
 
