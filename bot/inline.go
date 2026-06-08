@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 
@@ -95,16 +94,7 @@ func HandleInlineQuery(b *gotgbot.Bot, ctx *ext.Context) error {
 }
 
 func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url string) error {
-	cleanURL := url
-	if idx := strings.Index(cleanURL, "?si="); idx != -1 {
-		cleanURL = cleanURL[:idx]
-	}
-	if idx := strings.Index(cleanURL, "&si="); idx != -1 {
-		cleanURL = cleanURL[:idx]
-	}
-	cleanURL = strings.Split(cleanURL, "?")[0]
-
-	info, err := utils.GetYoutubeInfo(cleanURL)
+	info, err := utils.GetYoutubeInfo(url)
 	if err != nil {
 		results := []gotgbot.InlineQueryResult{
 			&gotgbot.InlineQueryResultArticle{
@@ -159,10 +149,12 @@ func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url s
 	durationMin := info.Videos[0].Duration / 60
 	durationSec := info.Videos[0].Duration % 60
 
+	text := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d\n\n🔽 <b>Choose download format:</b>", info.Name, durationMin, durationSec)
+
 	keyboard := [][]gotgbot.InlineKeyboardButton{
 		{
-			{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt#video#%d#%s", inlineQuery.From.Id, info.ID)},
-			{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt#audio#%d#%s", inlineQuery.From.Id, info.ID)},
+			{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt#%d#%s#video", inlineQuery.From.Id, info.ID)},
+			{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt#%d#%s#audio", inlineQuery.From.Id, info.ID)},
 		},
 	}
 	replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
@@ -172,7 +164,7 @@ func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url s
 		Title:       info.Name,
 		Description: fmt.Sprintf("Duration: %d:%02d", durationMin, durationSec),
 		InputMessageContent: &gotgbot.InputTextMessageContent{
-			MessageText: fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d\n\nChoose format:", info.Name, durationMin, durationSec),
+			MessageText: text,
 			ParseMode:   "HTML",
 		},
 		ReplyMarkup: &replyMarkup,
@@ -183,158 +175,6 @@ func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url s
 		CacheTime: &cacheTime,
 	})
 	return err
-}
-
-func HandleInlineYoutubeCallback(b *gotgbot.Bot, ctx *ext.Context) error {
-	query := ctx.Update.CallbackQuery
-	if query == nil {
-		return nil
-	}
-
-	data := query.Data
-	if !strings.HasPrefix(data, "yt#") {
-		return nil
-	}
-
-	parts := strings.Split(data, "#")
-	if len(parts) != 4 {
-		return nil
-	}
-
-	action := parts[1]
-	videoID := parts[3]
-
-	query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{
-		Text:      "Downloading... Please wait",
-		ShowAlert: true,
-	})
-
-	videoURL := fmt.Sprintf("https://youtu.be/%s", videoID)
-
-	if action == "video" {
-		go downloadAndSendVideoInline(b, query, videoURL)
-	} else if action == "audio" {
-		go downloadAndSendAudioInline(b, query, videoURL)
-	}
-
-	return nil
-}
-
-func downloadAndSendVideoInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL string) {
-	inlineMsgID := query.InlineMessageId
-	if inlineMsgID == "" {
-		return
-	}
-
-	b.EditMessageText("🎬 <b>Downloading video...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
-		InlineMessageId: inlineMsgID,
-		ParseMode:       "HTML",
-	})
-
-	stream, err := utils.GetYoutubeStream(videoURL)
-	if err != nil || stream.VideoURL == "" {
-		b.EditMessageText("❌ Failed to fetch video. Please try again.", &gotgbot.EditMessageTextOpts{
-			InlineMessageId: inlineMsgID,
-		})
-		return
-	}
-
-	tempPath, err := utils.DownloadFileToTemp(stream.VideoURL)
-	if err != nil {
-		b.EditMessageText("❌ Failed to download video. Please try again.", &gotgbot.EditMessageTextOpts{
-			InlineMessageId: inlineMsgID,
-		})
-		return
-	}
-	defer os.Remove(tempPath)
-
-	videoFile, err := os.Open(tempPath)
-	if err != nil {
-		b.EditMessageText("❌ Failed to open video file.", &gotgbot.EditMessageTextOpts{
-			InlineMessageId: inlineMsgID,
-		})
-		return
-	}
-	defer videoFile.Close()
-
-	durationMin := stream.Duration / 60
-	durationSec := stream.Duration % 60
-	caption := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d", stream.Title, durationMin, durationSec)
-
-	videoInput := gotgbot.InputMediaVideo{
-		Media:     gotgbot.InputFileByReader(tempPath, videoFile),
-		Caption:   caption,
-		ParseMode: "HTML",
-	}
-
-	_, _, err = b.EditMessageMedia(videoInput, &gotgbot.EditMessageMediaOpts{
-		InlineMessageId: inlineMsgID,
-	})
-	if err != nil {
-		b.EditMessageText("❌ Failed to send video.", &gotgbot.EditMessageTextOpts{
-			InlineMessageId: inlineMsgID,
-		})
-	}
-}
-
-func downloadAndSendAudioInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL string) {
-	inlineMsgID := query.InlineMessageId
-	if inlineMsgID == "" {
-		return
-	}
-
-	b.EditMessageText("🎵 <b>Downloading audio...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
-		InlineMessageId: inlineMsgID,
-		ParseMode:       "HTML",
-	})
-
-	stream, err := utils.GetYoutubeStream(videoURL)
-	if err != nil || stream.AudioURL == "" {
-		b.EditMessageText("❌ Failed to fetch audio. Please try again.", &gotgbot.EditMessageTextOpts{
-			InlineMessageId: inlineMsgID,
-		})
-		return
-	}
-
-	tempPath, err := utils.DownloadFileToTemp(stream.AudioURL)
-	if err != nil {
-		b.EditMessageText("❌ Failed to download audio. Please try again.", &gotgbot.EditMessageTextOpts{
-			InlineMessageId: inlineMsgID,
-		})
-		return
-	}
-	defer os.Remove(tempPath)
-
-	audioFile, err := os.Open(tempPath)
-	if err != nil {
-		b.EditMessageText("❌ Failed to open audio file.", &gotgbot.EditMessageTextOpts{
-			InlineMessageId: inlineMsgID,
-		})
-		return
-	}
-	defer audioFile.Close()
-
-	durationMin := stream.Duration / 60
-	durationSec := stream.Duration % 60
-	caption := fmt.Sprintf("🎵 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d\n\n<b>Song:</b> %s", stream.Title, durationMin, durationSec, stream.Title)
-
-	audioInput := gotgbot.InputMediaAudio{
-		Media:     gotgbot.InputFileByReader(tempPath, audioFile),
-		Caption:   caption,
-		ParseMode: "HTML",
-		Title:     stream.Title,
-		Performer: "YouTube",
-		Duration:  int64(stream.Duration),
-	}
-
-	_, _, err = b.EditMessageMedia(audioInput, &gotgbot.EditMessageMediaOpts{
-		InlineMessageId: inlineMsgID,
-	})
-	if err != nil {
-		b.EditMessageText("❌ Failed to send audio.", &gotgbot.EditMessageTextOpts{
-			InlineMessageId: inlineMsgID,
-		})
-	}
 }
 
 func handleInstagramInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url string) error {
@@ -568,7 +408,7 @@ func handleSpotifyTrackInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, 
 		Title:         source.Title,
 		Performer:     source.Artist,
 		AudioDuration: int64(source.Duration),
-		Caption:       fmt.Sprintf("<b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d seconds\n\n<b>Song:</b> %s", utils.EscapeHTML(source.Title), utils.EscapeHTML(source.Artist), source.Duration, source.Title),
+		Caption:       fmt.Sprintf("<b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d seconds", utils.EscapeHTML(source.Title), utils.EscapeHTML(source.Artist), source.Duration),
 		ParseMode:     "HTML",
 	}
 
@@ -637,7 +477,7 @@ func handleSongInlineFast(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, quer
 				Title:         source.Title,
 				Performer:     source.Artist,
 				AudioDuration: int64(source.Duration),
-				Caption:       fmt.Sprintf("<b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d seconds\n\n<b>Song:</b> %s", utils.EscapeHTML(source.Title), utils.EscapeHTML(source.Artist), source.Duration, source.Title),
+				Caption:       fmt.Sprintf("<b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d seconds", utils.EscapeHTML(source.Title), utils.EscapeHTML(source.Artist), source.Duration),
 				ParseMode:     "HTML",
 			}
 
