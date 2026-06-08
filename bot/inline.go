@@ -154,8 +154,8 @@ func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url s
 
 	keyboard := [][]gotgbot.InlineKeyboardButton{
 		{
-			{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt_inline_video_%s", videoID)},
-			{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt_inline_audio_%s", videoID)},
+			{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt_video_%d_%s", inlineQuery.From.Id, videoID)},
+			{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt_audio_%d_%s", inlineQuery.From.Id, videoID)},
 		},
 	}
 	replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
