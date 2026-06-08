@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -206,8 +207,8 @@ func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, ch
 
 	keyboard := [][]gotgbot.InlineKeyboardButton{
 		{
-			{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt_video_%d_%s", userID, videoID)},
-			{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt_audio_%d_%s", userID, videoID)},
+			{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt#video#%d#%s", userID, videoID)},
+			{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt#audio#%d#%s", userID, videoID)},
 		},
 		{
 			{Text: "❌ Cancel", CallbackData: "cancel"},
@@ -229,8 +230,13 @@ func HandleYoutubeCallback(b *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
-	parts := strings.Split(query.Data, "_")
-	if len(parts) < 4 {
+	data := query.Data
+	if !strings.HasPrefix(data, "yt#") {
+		return nil
+	}
+
+	parts := strings.Split(data, "#")
+	if len(parts) != 4 {
 		return nil
 	}
 
