@@ -34,14 +34,14 @@ func HandleInlineQuery(b *gotgbot.Bot, ctx *ext.Context) error {
 			&gotgbot.InlineQueryResultArticle{
 				Id:          generateUUID(),
 				Title:       "How to use this bot",
-				Description: fmt.Sprintf("Use @%s to search songs, playlists, Instagram, Pinterest, YouTube", botUsername),
+				Description: fmt.Sprintf("Use @%s to search songs, Instagram, Pinterest, YouTube", botUsername),
 				InputMessageContent: &gotgbot.InputTextMessageContent{
 					MessageText: fmt.Sprintf("🎵 <b>Inline Mode Usage - @%s</b>\n\n"+
 						"• <code>@%s song name</code> - Search and send audio\n"+
 						"• <code>@%s Spotify playlist/album link</code> - Browse playlist\n"+
 						"• <code>@%s Instagram link</code> - Send photo/video\n"+
 						"• <code>@%s Pinterest link</code> - Send image/video\n"+
-						"• <code>@%s YouTube link</code> - Download video/audio\n\n"+
+						"• <code>@%s YouTube link</code> - Download video/audio (video/shorts only)\n\n"+
 						"<b>Examples:</b>\n"+
 						"<code>@%s never gonna give you up</code>\n"+
 						"<code>@%s https://open.spotify.com/playlist/xxx</code>\n"+
@@ -104,7 +104,7 @@ func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url s
 				Title:       "Error",
 				Description: "Invalid YouTube URL",
 				InputMessageContent: &gotgbot.InputTextMessageContent{
-					MessageText: "❌ Invalid YouTube URL. Please send a valid YouTube link.",
+					MessageText: "❌ Invalid YouTube URL. Please send a valid video or shorts link.\n\nPlaylists are not supported.",
 					ParseMode:   "HTML",
 				},
 			},
@@ -133,34 +133,18 @@ func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url s
 	}
 
 	if info.Type == "playlist" {
-		if info.TotalVideos == 0 {
-			results := []gotgbot.InlineQueryResult{
-				&gotgbot.InlineQueryResultArticle{
-					Id:          generateUUID(),
-					Title:       "No videos",
-					Description: "Playlist is empty",
-					InputMessageContent: &gotgbot.InputTextMessageContent{
-						MessageText: "❌ No videos found in this playlist.",
-						ParseMode:   "HTML",
-					},
-				},
-			}
-			cacheTime := int64(0)
-			_, err := inlineQuery.Answer(b, results, &gotgbot.AnswerInlineQueryOpts{CacheTime: &cacheTime})
-			return err
-		}
 		results := []gotgbot.InlineQueryResult{
 			&gotgbot.InlineQueryResultArticle{
 				Id:          generateUUID(),
-				Title:       fmt.Sprintf("📺 %s", info.Name),
-				Description: fmt.Sprintf("%d videos - Send to bot in private to browse", info.TotalVideos),
+				Title:       "Playlist Not Supported",
+				Description: "Only videos and shorts are supported",
 				InputMessageContent: &gotgbot.InputTextMessageContent{
-					MessageText: fmt.Sprintf("📺 <b>%s</b>\n\n📊 <b>Total videos:</b> %d\n\nSend this playlist link to me in a private chat to browse and download:\n\n<code>%s</code>", info.Name, info.TotalVideos, cleanURL),
+					MessageText: "❌ Playlists are not supported. Please send a video or shorts link only.",
 					ParseMode:   "HTML",
 				},
 			},
 		}
-		cacheTime := int64(300)
+		cacheTime := int64(0)
 		_, err = inlineQuery.Answer(b, results, &gotgbot.AnswerInlineQueryOpts{CacheTime: &cacheTime})
 		return err
 	}
