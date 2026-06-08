@@ -234,14 +234,14 @@ func HandleYoutube(b *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 
-	url = strings.Split(url, "&si=")[0]
-	videoID := ExtractYoutubeID(url)
+	cleanURL := strings.Split(url, "&si=")[0]
+	videoID := ExtractYoutubeID(cleanURL)
 	if videoID == "" {
 		ctx.EffectiveMessage.Reply(b, "❌ Could not extract YouTube ID. Please check the link.", nil)
 		return nil
 	}
 
-	info, err := GetYoutubeInfo(url)
+	info, err := GetYoutubeInfo(cleanURL)
 	if err != nil {
 		ctx.EffectiveMessage.Reply(b, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
 		return nil
@@ -252,7 +252,7 @@ func HandleYoutube(b *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
-	return handleYoutubeVideo(b, ctx, url, userID, chatID)
+	return handleYoutubeVideo(b, ctx, cleanURL, userID, chatID)
 }
 
 func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, chatID int64) error {
@@ -317,22 +317,159 @@ func HandleYoutubeCallback(b *gotgbot.Bot, ctx *ext.Context) error {
 	query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{})
 
 	if action == "video" {
-		go downloadYoutubeVideo(b, query, videoID)
+		if query.InlineMessageId != "" {
+			go downloadYoutubeVideoInline(b, query, videoID)
+		} else {
+			go downloadYoutubeVideo(b, query, videoID)
+		}
 	} else if action == "audio" {
-		go downloadYoutubeAudio(b, query, videoID)
+		if query.InlineMessageId != "" {
+			go downloadYoutubeAudioInline(b, query, videoID)
+		} else {
+			go downloadYoutubeAudio(b, query, videoID)
+		}
 	}
 
 	return nil
 }
 
 func downloadYoutubeVideo(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoID string) {
-	inlineMsgID := query.InlineMessageId
-	if inlineMsgID == "" && query.Message != nil {
-		inlineMsgID = fmt.Sprintf("%d_%d", query.Message.GetChat().Id, query.Message.GetMessageId())
+	chatID := query.Message.GetChat().Id
+	messageID := query.Message.GetMessageId()
+
+	statusMsg, err := b.SendMessage(chatID, "🎬 <b>Downloading video...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
+		ParseMode: "HTML",
+		ReplyParameters: &gotgbot.ReplyParameters{
+			MessageId: messageID,
+		},
+	})
+	if err != nil {
+		return
 	}
+
+	url := fmt.Sprintf("https://youtu.be/%s", videoID)
+	stream, err := GetYoutubeStream(url)
+	if err != nil || stream.VideoURL == "" {
+		b.EditMessageText("❌ Failed to fetch video. Please try again.", &gotgbot.EditMessageTextOpts{
+			ChatId:    chatID,
+			MessageId: statusMsg.MessageId,
+		})
+		return
+	}
+
+	tempPath, err := DownloadFileToTemp(stream.VideoURL)
+	if err != nil {
+		b.EditMessageText("❌ Failed to download video. Please try again.", &gotgbot.EditMessageTextOpts{
+			ChatId:    chatID,
+			MessageId: statusMsg.MessageId,
+		})
+		return
+	}
+	defer os.Remove(tempPath)
+
+	videoFile, err := os.Open(tempPath)
+	if err != nil {
+		b.EditMessageText("❌ Failed to open video file.", &gotgbot.EditMessageTextOpts{
+			ChatId:    chatID,
+			MessageId: statusMsg.MessageId,
+		})
+		return
+	}
+	defer videoFile.Close()
+
+	durationMin := stream.Duration / 60
+	durationSec := stream.Duration % 60
+	caption := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d", stream.Title, durationMin, durationSec)
+
+	b.DeleteMessage(chatID, statusMsg.MessageId, nil)
+
+	_, err = b.SendVideo(chatID, gotgbot.InputFileByReader(tempPath, videoFile), &gotgbot.SendVideoOpts{
+		Caption:   caption,
+		ParseMode: "HTML",
+		ReplyParameters: &gotgbot.ReplyParameters{
+			MessageId: messageID,
+		},
+	})
+	if err != nil {
+		b.SendMessage(chatID, "❌ Failed to send video.", nil)
+	}
+}
+
+func downloadYoutubeAudio(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoID string) {
+	chatID := query.Message.GetChat().Id
+	messageID := query.Message.GetMessageId()
+
+	statusMsg, err := b.SendMessage(chatID, "🎵 <b>Downloading audio...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
+		ParseMode: "HTML",
+		ReplyParameters: &gotgbot.ReplyParameters{
+			MessageId: messageID,
+		},
+	})
+	if err != nil {
+		return
+	}
+
+	url := fmt.Sprintf("https://youtu.be/%s", videoID)
+	stream, err := GetYoutubeStream(url)
+	if err != nil || stream.AudioURL == "" {
+		b.EditMessageText("❌ Failed to fetch audio. Please try again.", &gotgbot.EditMessageTextOpts{
+			ChatId:    chatID,
+			MessageId: statusMsg.MessageId,
+		})
+		return
+	}
+
+	tempPath, err := DownloadFileToTemp(stream.AudioURL)
+	if err != nil {
+		b.EditMessageText("❌ Failed to download audio. Please try again.", &gotgbot.EditMessageTextOpts{
+			ChatId:    chatID,
+			MessageId: statusMsg.MessageId,
+		})
+		return
+	}
+	defer os.Remove(tempPath)
+
+	audioFile, err := os.Open(tempPath)
+	if err != nil {
+		b.EditMessageText("❌ Failed to open audio file.", &gotgbot.EditMessageTextOpts{
+			ChatId:    chatID,
+			MessageId: statusMsg.MessageId,
+		})
+		return
+	}
+	defer audioFile.Close()
+
+	durationMin := stream.Duration / 60
+	durationSec := stream.Duration % 60
+	caption := fmt.Sprintf("🎵 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d", stream.Title, durationMin, durationSec)
+
+	b.DeleteMessage(chatID, statusMsg.MessageId, nil)
+
+	_, err = b.SendAudio(chatID, gotgbot.InputFileByReader(tempPath, audioFile), &gotgbot.SendAudioOpts{
+		Caption:   caption,
+		ParseMode: "HTML",
+		Title:     stream.Title,
+		Performer: "YouTube",
+		Duration:  int64(stream.Duration),
+		ReplyParameters: &gotgbot.ReplyParameters{
+			MessageId: messageID,
+		},
+	})
+	if err != nil {
+		b.SendMessage(chatID, "❌ Failed to send audio.", nil)
+	}
+}
+
+func downloadYoutubeVideoInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoID string) {
+	inlineMsgID := query.InlineMessageId
 	if inlineMsgID == "" {
 		return
 	}
+
+	b.EditMessageText("🎬 <b>Downloading video...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
+		InlineMessageId: inlineMsgID,
+		ParseMode:       "HTML",
+	})
 
 	url := fmt.Sprintf("https://youtu.be/%s", videoID)
 	stream, err := GetYoutubeStream(url)
@@ -381,14 +518,16 @@ func downloadYoutubeVideo(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoID 
 	}
 }
 
-func downloadYoutubeAudio(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoID string) {
+func downloadYoutubeAudioInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoID string) {
 	inlineMsgID := query.InlineMessageId
-	if inlineMsgID == "" && query.Message != nil {
-		inlineMsgID = fmt.Sprintf("%d_%d", query.Message.GetChat().Id, query.Message.GetMessageId())
-	}
 	if inlineMsgID == "" {
 		return
 	}
+
+	b.EditMessageText("🎵 <b>Downloading audio...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
+		InlineMessageId: inlineMsgID,
+		ParseMode:       "HTML",
+	})
 
 	url := fmt.Sprintf("https://youtu.be/%s", videoID)
 	stream, err := GetYoutubeStream(url)
