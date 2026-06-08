@@ -204,26 +204,23 @@ func HandleInlineYoutubeCallback(b *gotgbot.Bot, ctx *ext.Context) error {
 	action := parts[1]
 	videoID := parts[3]
 
-	_, err := query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{
-		Text:      "Downloading...",
+	query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{
+		Text:      "Downloading... Please wait",
 		ShowAlert: true,
 	})
-	if err != nil {
-		return err
-	}
 
 	videoURL := fmt.Sprintf("https://youtu.be/%s", videoID)
 
 	if action == "video" {
-		go downloadAndSendVideo(b, query, videoURL)
+		go downloadAndSendVideoInline(b, query, videoURL)
 	} else if action == "audio" {
-		go downloadAndSendAudio(b, query, videoURL)
+		go downloadAndSendAudioInline(b, query, videoURL)
 	}
 
 	return nil
 }
 
-func downloadAndSendVideo(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL string) {
+func downloadAndSendVideoInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL string) {
 	inlineMsgID := query.InlineMessageId
 	if inlineMsgID == "" {
 		return
@@ -280,7 +277,7 @@ func downloadAndSendVideo(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL
 	}
 }
 
-func downloadAndSendAudio(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL string) {
+func downloadAndSendAudioInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL string) {
 	inlineMsgID := query.InlineMessageId
 	if inlineMsgID == "" {
 		return
@@ -319,7 +316,7 @@ func downloadAndSendAudio(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL
 
 	durationMin := stream.Duration / 60
 	durationSec := stream.Duration % 60
-	caption := fmt.Sprintf("🎵 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d", stream.Title, durationMin, durationSec)
+	caption := fmt.Sprintf("🎵 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d\n\n<b>Song:</b> %s", stream.Title, durationMin, durationSec, stream.Title)
 
 	audioInput := gotgbot.InputMediaAudio{
 		Media:     gotgbot.InputFileByReader(tempPath, audioFile),
@@ -571,7 +568,7 @@ func handleSpotifyTrackInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, 
 		Title:         source.Title,
 		Performer:     source.Artist,
 		AudioDuration: int64(source.Duration),
-		Caption:       fmt.Sprintf("<b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d seconds", utils.EscapeHTML(source.Title), utils.EscapeHTML(source.Artist), source.Duration),
+		Caption:       fmt.Sprintf("<b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d seconds\n\n<b>Song:</b> %s", utils.EscapeHTML(source.Title), utils.EscapeHTML(source.Artist), source.Duration, source.Title),
 		ParseMode:     "HTML",
 	}
 
@@ -640,7 +637,7 @@ func handleSongInlineFast(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, quer
 				Title:         source.Title,
 				Performer:     source.Artist,
 				AudioDuration: int64(source.Duration),
-				Caption:       fmt.Sprintf("<b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d seconds", utils.EscapeHTML(source.Title), utils.EscapeHTML(source.Artist), source.Duration),
+				Caption:       fmt.Sprintf("<b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d seconds\n\n<b>Song:</b> %s", utils.EscapeHTML(source.Title), utils.EscapeHTML(source.Artist), source.Duration, source.Title),
 				ParseMode:     "HTML",
 			}
 
