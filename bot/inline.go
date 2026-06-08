@@ -40,7 +40,7 @@ func HandleInlineQuery(b *gotgbot.Bot, ctx *ext.Context) error {
 						"• <code>@%s Spotify playlist/album link</code> - Browse playlist\n"+
 						"• <code>@%s Instagram link</code> - Send photo/video\n"+
 						"• <code>@%s Pinterest link</code> - Send image/video\n"+
-						"• <code>@%s YouTube link</code> - Download video/audio (video/shorts only)\n\n"+
+						"• <code>@%s YouTube link</code> - Download video/audio (max 15 min, 144p video, 320kbps audio)\n\n"+
 						"<b>Examples:</b>\n"+
 						"<code>@%s never gonna give you up</code>\n"+
 						"<code>@%s https://open.spotify.com/playlist/xxx</code>\n"+
@@ -146,15 +146,33 @@ func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url s
 		return err
 	}
 
-	durationMin := info.Videos[0].Duration / 60
-	durationSec := info.Videos[0].Duration % 60
+	videoDuration := info.Videos[0].Duration
+	if videoDuration > 900 {
+		results := []gotgbot.InlineQueryResult{
+			&gotgbot.InlineQueryResultArticle{
+				Id:          generateUUID(),
+				Title:       "Duration Limit Exceeded",
+				Description: "Video longer than 15 minutes is not allowed",
+				InputMessageContent: &gotgbot.InputTextMessageContent{
+					MessageText: "❌ Videos longer than 15 minutes are not allowed due to Telegram file size limits.",
+					ParseMode:   "HTML",
+				},
+			},
+		}
+		cacheTime := int64(0)
+		_, err = inlineQuery.Answer(b, results, &gotgbot.AnswerInlineQueryOpts{CacheTime: &cacheTime})
+		return err
+	}
 
-	text := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d\n\n🔽 <b>Choose download format:</b>", info.Name, durationMin, durationSec)
+	durationMin := videoDuration / 60
+	durationSec := videoDuration % 60
+
+	text := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d\n\n🔽 <b>Choose download format (144p video / 320kbps audio):</b>", info.Name, durationMin, durationSec)
 
 	keyboard := [][]gotgbot.InlineKeyboardButton{
 		{
-			{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt#%d#%s#video", inlineQuery.From.Id, info.ID)},
-			{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt#%d#%s#audio", inlineQuery.From.Id, info.ID)},
+			{Text: "🎥 Video (144p MP4)", CallbackData: fmt.Sprintf("yt#%d#%s#video", inlineQuery.From.Id, info.ID)},
+			{Text: "🎵 Audio (320kbps MP3)", CallbackData: fmt.Sprintf("yt#%d#%s#audio", inlineQuery.From.Id, info.ID)},
 		},
 	}
 	replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
