@@ -115,6 +115,7 @@ func GetYoutubeInfo(rawURL string) (*YoutubeInfo, error) {
 }
 
 func GetYoutubeStream(rawURL string) (*YoutubeStream, error) {
+	fmt.Println(rawURL)
 	client := dlkitgo.NewClient()
 	stream, err := client.Youtube.Stream(rawURL)
 	if err != nil {
