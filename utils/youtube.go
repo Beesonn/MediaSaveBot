@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -41,38 +40,6 @@ type YoutubeStream struct {
 	Thumbnail string
 	VideoURL  string
 	AudioURL  string
-}
-
-func ExtractYoutubeID(urlStr string) string {
-	if idx := strings.Index(urlStr, "?si="); idx != -1 {
-		urlStr = urlStr[:idx]
-	}
-	if idx := strings.Index(urlStr, "&si="); idx != -1 {
-		urlStr = urlStr[:idx]
-	}
-
-	patterns := []string{
-		`youtu\.be/([a-zA-Z0-9_-]+)`,
-		`youtube\.com/watch\?v=([a-zA-Z0-9_-]+)`,
-		`youtube\.com/embed/([a-zA-Z0-9_-]+)`,
-		`youtube\.com/v/([a-zA-Z0-9_-]+)`,
-		`youtube\.com/shorts/([a-zA-Z0-9_-]+)`,
-	}
-	for _, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		matches := re.FindStringSubmatch(urlStr)
-		if len(matches) > 1 {
-			return matches[1]
-		}
-	}
-
-	parsed, err := url.Parse(urlStr)
-	if err == nil {
-		if v := parsed.Query().Get("v"); v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 func GetYoutubeInfo(rawURL string) (*YoutubeInfo, error) {
@@ -115,7 +82,6 @@ func GetYoutubeInfo(rawURL string) (*YoutubeInfo, error) {
 }
 
 func GetYoutubeStream(rawURL string) (*YoutubeStream, error) {
-	fmt.Println(rawURL)
 	client := dlkitgo.NewClient()
 	stream, err := client.Youtube.Stream(rawURL)
 	if err != nil {
@@ -205,14 +171,6 @@ func HandleYoutube(b *gotgbot.Bot, ctx *ext.Context) error {
 	}
 	cleanURL = strings.Split(cleanURL, "?")[0]
 
-	videoID := ExtractYoutubeID(cleanURL)
-	if videoID == "" {
-		ctx.EffectiveMessage.Reply(b, "❌ Could not extract YouTube ID. Please check the link.", nil)
-		return nil
-	}
-
-	cleanURL = fmt.Sprintf("https://youtu.be/%s", videoID)
-
 	info, err := GetYoutubeInfo(cleanURL)
 	if err != nil {
 		ctx.EffectiveMessage.Reply(b, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
@@ -224,7 +182,7 @@ func HandleYoutube(b *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
-	return handleYoutubeVideo(b, ctx, cleanURL, userID, chatID, videoID)
+	return handleYoutubeVideo(b, ctx, cleanURL, userID, chatID, info.ID)
 }
 
 func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, chatID int64, videoID string) error {
