@@ -103,7 +103,7 @@ func GetYoutubeInfo(rawURL string) (*YoutubeInfo, error) {
 			youtubeInfo.TotalVideos = 1
 			youtubeInfo.Videos = append(youtubeInfo.Videos, YoutubeVideo{
 				Name:     EscapeHTML(info.Name),
-				Duration: info.Duration,
+				Duration: 0,
 				URL:      cleanURL,
 				VideoID:  info.ID,
 			})
@@ -143,26 +143,6 @@ func GetYoutubeStream(rawURL string) (*YoutubeStream, error) {
 	}
 
 	return youtubeStream, nil
-}
-
-func extractQuality(quality string) int {
-	re := regexp.MustCompile(`(\d+)p`)
-	matches := re.FindStringSubmatch(quality)
-	if len(matches) > 1 {
-		q, _ := strconv.Atoi(matches[1])
-		return q
-	}
-	return 0
-}
-
-func extractBitrate(quality string) int {
-	re := regexp.MustCompile(`(\d+)kbps`)
-	matches := re.FindStringSubmatch(quality)
-	if len(matches) > 1 {
-		b, _ := strconv.Atoi(matches[1])
-		return b
-	}
-	return 0
 }
 
 func DownloadFileToTemp(downloadURL string) (string, error) {
@@ -234,10 +214,10 @@ func HandleYoutube(b *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
-	return handleYoutubeVideo(b, ctx, cleanURL, userID, chatID)
+	return handleYoutubeVideo(b, ctx, cleanURL, userID, chatID, videoID)
 }
 
-func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, chatID int64) error {
+func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, chatID int64, videoID string) error {
 	statusMsg, err := ctx.EffectiveMessage.Reply(b, "🎬 Processing YouTube video...", nil)
 	if err != nil {
 		return err
@@ -302,22 +282,22 @@ func HandleYoutubeCallback(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	if action == "video" {
 		if query.InlineMessageId != "" {
-			go downloadYoutubeVideoInline(b, query, videoURL, videoID)
+			go downloadYoutubeVideoInline(b, query, videoURL)
 		} else {
-			go downloadYoutubeVideo(b, query, videoURL, videoID)
+			go downloadYoutubeVideo(b, query, videoURL)
 		}
 	} else if action == "audio" {
 		if query.InlineMessageId != "" {
-			go downloadYoutubeAudioInline(b, query, videoURL, videoID)
+			go downloadYoutubeAudioInline(b, query, videoURL)
 		} else {
-			go downloadYoutubeAudio(b, query, videoURL, videoID)
+			go downloadYoutubeAudio(b, query, videoURL)
 		}
 	}
 
 	return nil
 }
 
-func downloadYoutubeVideo(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL, videoID string) {
+func downloadYoutubeVideo(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL string) {
 	chatID := query.Message.GetChat().Id
 	messageID := query.Message.GetMessageId()
 
@@ -378,7 +358,7 @@ func downloadYoutubeVideo(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL
 	}
 }
 
-func downloadYoutubeAudio(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL, videoID string) {
+func downloadYoutubeAudio(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL string) {
 	chatID := query.Message.GetChat().Id
 	messageID := query.Message.GetMessageId()
 
@@ -442,7 +422,7 @@ func downloadYoutubeAudio(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL
 	}
 }
 
-func downloadYoutubeVideoInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL, videoID string) {
+func downloadYoutubeVideoInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL string) {
 	inlineMsgID := query.InlineMessageId
 	if inlineMsgID == "" {
 		return
@@ -499,7 +479,7 @@ func downloadYoutubeVideoInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, vi
 	}
 }
 
-func downloadYoutubeAudioInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL, videoID string) {
+func downloadYoutubeAudioInline(b *gotgbot.Bot, query *gotgbot.CallbackQuery, videoURL string) {
 	inlineMsgID := query.InlineMessageId
 	if inlineMsgID == "" {
 		return
