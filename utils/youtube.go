@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Beesonn/dlkitgo"
 	"github.com/PaulSonOfLars/gotgbot/v2"
