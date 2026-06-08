@@ -161,8 +161,8 @@ func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url s
 
 	keyboard := [][]gotgbot.InlineKeyboardButton{
 		{
-			{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt_inline_video_%s", info.ID)},
-			{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt_inline_audio_%s", info.ID)},
+			{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt#video#%d#%s", inlineQuery.From.Id, info.ID)},
+			{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt#audio#%d#%s", inlineQuery.From.Id, info.ID)},
 		},
 	}
 	replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
@@ -191,12 +191,17 @@ func HandleInlineYoutubeCallback(b *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
-	parts := strings.Split(query.Data, "_")
-	if len(parts) < 4 {
+	data := query.Data
+	if !strings.HasPrefix(data, "yt#") {
 		return nil
 	}
 
-	action := parts[2]
+	parts := strings.Split(data, "#")
+	if len(parts) != 4 {
+		return nil
+	}
+
+	action := parts[1]
 	videoID := parts[3]
 
 	_, err := query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{
