@@ -230,8 +230,8 @@ func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, ch
 
 	keyboard := [][]gotgbot.InlineKeyboardButton{
 		{
-			{Text: "🎥 Video (144p MP4)", CallbackData: fmt.Sprintf("yt#%d#%s#video", userID, videoID)},
-			{Text: "🎵 Audio (320kbps MP3)", CallbackData: fmt.Sprintf("yt#%d#%s#audio", userID, videoID)},
+			{Text: "🎥 Video MP4", CallbackData: fmt.Sprintf("yt#%d#%s#video", userID, videoID)},
+			{Text: "🎵 Audio MP3", CallbackData: fmt.Sprintf("yt#%d#%s#audio", userID, videoID)},
 		},
 		{
 			{Text: "❌ Cancel", CallbackData: "cancel"},
