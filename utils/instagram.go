@@ -2,7 +2,7 @@ package utils
 
 import (
 	"github.com/Beesonn/dlkitgo"
-	"github.com/Beesonn/dlkitgo/instagram/providers
+	"github.com/Beesonn/dlkitgo/instagram/providers"
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
