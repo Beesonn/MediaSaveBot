@@ -2,22 +2,19 @@ package utils
 
 import (
 	"github.com/Beesonn/dlkitgo"
+	"github.com/Beesonn/dlkitgo/instagram/providers
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
 
-func GetInstagramMedia(url string) ([]interface{}, string, error) {
+func GetInstagramMedia(url string) ([]providers.MediaSource, string, error) {
 	client := dlkitgo.NewClient()
 	stream, err := client.Instagram.Stream(url)
 	if err != nil {
 		return nil, "", err
 	}
 
-	sources := make([]interface{}, len(stream.Source))
-	for i, s := range stream.Source {
-		sources[i] = s
-	}
-	return sources, stream.Caption, nil
+	return stream.Source, stream.Caption, nil
 }
 
 func HandleInstagram(b *gotgbot.Bot, ctx *ext.Context) error {
