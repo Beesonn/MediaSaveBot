@@ -440,7 +440,7 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 	}
 
 	if err != nil {
-		b.SendMessage(chatID, fmt.Sprintf("❌ Failed to send %s.", format), &gotgbot.SendMessageOpts{
+		b.SendMessage(chatID, fmt.Sprintf("❌ Failed to send %s. %s", format, err), &gotgbot.SendMessageOpts{
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: messageID,
 			},
