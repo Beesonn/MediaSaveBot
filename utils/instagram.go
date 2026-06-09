@@ -51,7 +51,12 @@ func HandleInstagram(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	media := make([]gotgbot.InputMedia, 0)
 
-	for _, source := range sources {
+	for _, s := range sources {
+		type MediaItem struct {
+			Type string
+			URL  string
+		}
+		source := s.(MediaItem)
 		if source.Type == "video" {
 			media = append(media, gotgbot.InputMediaVideo{
 				Media:   gotgbot.InputFileByURL(source.URL),
