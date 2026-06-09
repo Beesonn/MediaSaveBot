@@ -52,10 +52,6 @@ func HandlePinterest(b *gotgbot.Bot, ctx *ext.Context) error {
 	media := make([]gotgbot.InputMedia, 0)
 
 	for _, s := range sources {
-		source := s.(struct {
-			Type string
-			URL  string
-		})
 		if source.Type == "video" {
 			media = append(media, gotgbot.InputMediaVideo{
 				Media:   gotgbot.InputFileByURL(source.URL),
