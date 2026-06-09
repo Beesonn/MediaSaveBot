@@ -2,22 +2,19 @@ package utils
 
 import (
 	"github.com/Beesonn/dlkitgo"
+	"github.com/Beesonn/dlkitgo/pinterest/providers"
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
 
-func GetPinterestMedia(url string) ([]interface{}, string, error) {
+func GetPinterestMedia(url string) ([]providers.MediaSource, string, error) {
 	client := dlkitgo.NewClient()
 	stream, err := client.Pinterest.Stream(url)
 	if err != nil {
 		return nil, "", err
 	}
 
-	sources := make([]interface{}, len(stream.Source))
-	for i, s := range stream.Source {
-		sources[i] = s
-	}
-	return sources, stream.Title, nil
+	return stream.Source, stream.Title, nil
 }
 
 func HandlePinterest(b *gotgbot.Bot, ctx *ext.Context) error {
