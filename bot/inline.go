@@ -171,8 +171,8 @@ func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url s
 
 	keyboard := [][]gotgbot.InlineKeyboardButton{
 		{
-			{Text: "🎥 Video (144p MP4)", CallbackData: fmt.Sprintf("yt#%d#%s#video", inlineQuery.From.Id, info.ID)},
-			{Text: "🎵 Audio (320kbps MP3)", CallbackData: fmt.Sprintf("yt#%d#%s#audio", inlineQuery.From.Id, info.ID)},
+			{Text: "🎥 Video MP4", CallbackData: fmt.Sprintf("yt#%d#%s#video", inlineQuery.From.Id, info.ID)},
+			{Text: "🎵 Audio MP3", CallbackData: fmt.Sprintf("yt#%d#%s#audio", inlineQuery.From.Id, info.ID)},
 		},
 	}
 	replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
@@ -215,11 +215,7 @@ func handleInstagramInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url
 	}
 
 	results := make([]gotgbot.InlineQueryResult, 0)
-	for _, s := range sources {
-		source := s.(struct {
-			Type string
-			URL  string
-		})
+	for _, source := range sources {
 		id := generateUUID()
 		if source.Type == "video" {
 			result := &gotgbot.InlineQueryResultVideo{
@@ -267,11 +263,7 @@ func handlePinterestInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url
 	}
 
 	results := make([]gotgbot.InlineQueryResult, 0)
-	for _, s := range sources {
-		source := s.(struct {
-			Type string
-			URL  string
-		})
+	for _, source := range sources {
 		id := generateUUID()
 		if source.Type == "video" {
 			result := &gotgbot.InlineQueryResultVideo{
