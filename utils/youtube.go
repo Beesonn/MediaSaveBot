@@ -100,7 +100,7 @@ func GetYoutubeStream(rawURL string) (*YoutubeStream, error) {
 
 	for _, source := range stream.Source {
 		if source.Type == "video" {
-			if strings.Contains(source.Quality, "720p") {
+			if strings.Contains(source.Quality, "480p") {
 				selectedVideoURL = source.URL
 				break
 			}
