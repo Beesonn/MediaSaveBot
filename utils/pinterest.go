@@ -7,7 +7,7 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
 
-func GetPinterestMedia(url string) ([]providers.MediaSource, string, error) {
+func GetPinterestMedia(url string) ([]providers.PinSource, string, error) {
 	client := dlkitgo.NewClient()
 	stream, err := client.Pinterest.Stream(url)
 	if err != nil {
