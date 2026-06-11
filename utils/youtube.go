@@ -412,7 +412,7 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 	}
 	defer file.Close()
 
-	durationMin := stream.Duration / 60
+//	durationMin := stream.Duration / 60
 	durationSec := stream.Duration % 60
 	caption := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d", stream.Title, stream.Duration, durationSec)
 
