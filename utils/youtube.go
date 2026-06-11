@@ -332,14 +332,14 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 	var err error
 
 	if format == "video" {
-		statusMsg, err = b.SendMessage(chatID, "🎬 <b>Downloading video (144p)...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
+		statusMsg, err = b.SendMessage(chatID, "🎬 <b>Downloading video...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
 			ParseMode: "HTML",
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: messageID,
 			},
 		})
 	} else {
-		statusMsg, err = b.SendMessage(chatID, "🎵 <b>Downloading audio (320kbps)...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
+		statusMsg, err = b.SendMessage(chatID, "🎵 <b>Downloading audio...</b>\n\nPlease wait...", &gotgbot.SendMessageOpts{
 			ParseMode: "HTML",
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: messageID,
@@ -412,9 +412,9 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 	}
 	defer file.Close()
 
-//	durationMin := stream.Duration / 60
+	durationMin := stream.Duration / 60
 	durationSec := stream.Duration % 60
-	caption := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d", stream.Title, stream.Duration, durationSec)
+	caption := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d", stream.Title, durationMin, durationSec)
 
 	statusMsg.Delete(b, nil)
 
@@ -432,7 +432,7 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 			ParseMode: "HTML",
 			Title:     stream.Title,
 			Performer: "YouTube",
-			Duration:  int64(stream.Duration),
+		//	Duration:  int64(stream.Duration),
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: messageID,
 			},
@@ -450,12 +450,12 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 
 func downloadYoutubeInline(b *gotgbot.Bot, videoURL, format string, inlineMsgID string) {
 	if format == "video" {
-		b.EditMessageText("🎬 <b>Downloading video (144p)...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
+		b.EditMessageText("🎬 <b>Downloading video...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
 			InlineMessageId: inlineMsgID,
 			ParseMode:       "HTML",
 		})
 	} else {
-		b.EditMessageText("🎵 <b>Downloading audio (320kbps)...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
+		b.EditMessageText("🎵 <b>Downloading audio...</b>\n\nPlease wait...", &gotgbot.EditMessageTextOpts{
 			InlineMessageId: inlineMsgID,
 			ParseMode:       "HTML",
 		})
