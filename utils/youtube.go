@@ -100,7 +100,7 @@ func GetYoutubeStream(rawURL string) (*YoutubeStream, error) {
 
 	for _, source := range stream.Source {
 		if source.Type == "video" {
-			if strings.Contains(source.Quality, "480p") {
+			if strings.Contains(source.Quality, "720p") {
 				selectedVideoURL = source.URL
 				break
 			}
@@ -414,7 +414,7 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 
 	durationMin := stream.Duration / 60
 	durationSec := stream.Duration % 60
-	caption := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d", stream.Title, durationMin, durationSec)
+	caption := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d", stream.Title, stream.Duration, durationSec)
 
 	statusMsg.Delete(b, nil)
 
