@@ -422,6 +422,7 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 		_, err = b.SendVideo(chatID, gotgbot.InputFileByReader(tempPath, file), &gotgbot.SendVideoOpts{
 			Caption:   caption,
 			ParseMode: "HTML",
+			Duration:  int64(stream.Duration),
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: messageID,
 			},
@@ -432,7 +433,7 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 			ParseMode: "HTML",
 			Title:     stream.Title,
 			Performer: "YouTube",
-		//	Duration:  int64(stream.Duration),
+			Duration:  int64(stream.Duration),
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: messageID,
 			},
@@ -440,7 +441,7 @@ func downloadYoutubeNormal(b *gotgbot.Bot, videoURL, format string, chatID, mess
 	}
 
 	if err != nil {
-		b.SendMessage(chatID, fmt.Sprintf("❌ Failed to send %s. %s", format, err), &gotgbot.SendMessageOpts{
+		b.SendMessage(chatID, fmt.Sprintf("❌ Failed to send %s.", format), &gotgbot.SendMessageOpts{
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: messageID,
 			},
@@ -516,6 +517,7 @@ func downloadYoutubeInline(b *gotgbot.Bot, videoURL, format string, inlineMsgID 
 		videoInput := gotgbot.InputMediaVideo{
 			Media:     gotgbot.InputFileByReader(tempPath, file),
 			Caption:   caption,
+			Duration:  int64(stream.Duration),
 			ParseMode: "HTML",
 		}
 		_, _, err = b.EditMessageMedia(videoInput, &gotgbot.EditMessageMediaOpts{
