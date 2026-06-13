@@ -87,13 +87,13 @@ func setupHandlers(dispatcher *ext.Dispatcher) {
 	dispatcher.AddHandler(handlers.NewCommand("song", bot.HandleSong))
 	dispatcher.AddHandler(handlers.NewCommand("donate", bot.Donate))
 	dispatcher.AddHandler(handlers.NewCommand("eval", bot.EvalCmd))
-	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("song_"), bot.HandleSongCallback))
-	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("pg_"), utils.HandlePlaylistCallback))
-	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("tr_"), utils.HandlePlaylistCallback))
-	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("dl_now_"), utils.HandlePlaylistCallback))
-	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("stop_dl_"), utils.HandlePlaylistCallback))
-	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt#"), utils.HandleYoutubeCallback))
 
+	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("song_"), bot.HandleSongCallback))
+	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("pg#"), utils.HandlePlaylistCallback))
+	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("dl_now#"), utils.HandlePlaylistCallback))
+	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("stop_dl#"), utils.HandlePlaylistCallback))
+	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("retry#"), utils.HandlePlaylistCallback))
+	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("yt#"), utils.HandleYoutubeCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("cancel"), utils.HandlePlaylistCallback))
 	dispatcher.AddHandler(handlers.NewCallback(callbackquery.Equal("create_bot"), bot.HandleCreateBotCallback))
 	dispatcher.AddHandler(handlers.NewInlineQuery(inlinequery.All, bot.HandleInlineQuery))
@@ -105,6 +105,7 @@ func setupHandlers(dispatcher *ext.Dispatcher) {
 		dispatcher.AddHandler(handlers.NewCommand("restartallbots", bot.RestartAllBots))
 		dispatcher.AddHandler(handlers.NewCallback(callbackquery.Prefix("stop_broadcast"), bot.HandleStopBroadcast))
 	}
+
 	dispatcher.AddHandler(handlers.NewMessage(nil, bot.HandleMessage))
 }
 

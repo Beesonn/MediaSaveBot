@@ -64,19 +64,15 @@ func SetBotUsername(username string) {
 }
 
 func EncodePlaylistCallback(playlistID, typ string) string {
-	return fmt.Sprintf("pl_%s_%s", playlistID, typ)
-}
-
-func encodePlaylistCallback(playlistID, typ string) string {
-	return EncodePlaylistCallback(playlistID, typ)
+	return fmt.Sprintf("%s-%s", playlistID, typ)
 }
 
 func decodePlaylistCallback(encoded string) (string, string, error) {
-	parts := strings.Split(encoded, "_")
-	if len(parts) != 3 || parts[0] != "pl" {
+	parts := strings.SplitN(encoded, "-", 2)
+	if len(parts) != 2 {
 		return "", "", fmt.Errorf("invalid format")
 	}
-	return parts[1], parts[2], nil
+	return parts[0], parts[1], nil
 }
 
 func GetCancelChannel(userID int64) (bool, chan bool) {
@@ -244,7 +240,7 @@ func HandleSpotify(b *gotgbot.Bot, ctx *ext.Context) error {
 		setUserProcessing(userID, true)
 		defer setUserProcessing(userID, false)
 
-		cacheKey := encodePlaylistCallback(playlistID, typ)
+		cacheKey := EncodePlaylistCallback(playlistID, typ)
 		playlistCacheMu.Lock()
 		playlistCache[cacheKey] = &CachedPlaylist{
 			Info:      info,
@@ -390,6 +386,47 @@ func sendPlaylistPageMessage(b *gotgbot.Bot, chatID int64, info *PlaylistInfo, p
 	return err
 }
 
+func editPlaylistPageMessage(b *gotgbot.Bot, chatID int64, messageID int64, info *PlaylistInfo, page int, userID int64, cacheKey string, chatType string) error {
+	totalTracks := len(info.Tracks)
+	totalPages := (totalTracks + 9) / 10
+	start := page * 10
+	end := start + 10
+	if end > totalTracks {
+		end = totalTracks
+	}
+
+	var text string
+	if info.Type == "playlist" {
+		text = fmt.Sprintf("📀 <b>%s</b>\n\n📊 <b>Total tracks:</b> %d\n\n<b>Page %d/%d</b>\n\n", info.Name, totalTracks, page+1, totalPages)
+	} else {
+		text = fmt.Sprintf("💿 <b>%s</b>\n\n📊 <b>Total tracks:</b> %d\n\n<b>Page %d/%d</b>\n\n", info.Name, totalTracks, page+1, totalPages)
+	}
+
+	keyboard := buildStatelessKeyboard(info, page, userID, cacheKey, chatType)
+	replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
+
+	if info.Image != "" {
+		_, _, err := b.EditMessageMedia(gotgbot.InputMediaPhoto{
+			Media:     gotgbot.InputFileByURL(info.Image),
+			Caption:   text,
+			ParseMode: "HTML",
+		}, &gotgbot.EditMessageMediaOpts{
+			ChatId:      chatID,
+			MessageId:   messageID,
+			ReplyMarkup: replyMarkup,
+		})
+		return err
+	}
+
+	_, _, err := b.EditMessageText(text, &gotgbot.EditMessageTextOpts{
+		ChatId:      chatID,
+		MessageId:   messageID,
+		ParseMode:   "HTML",
+		ReplyMarkup: replyMarkup,
+	})
+	return err
+}
+
 func buildStatelessKeyboard(info *PlaylistInfo, page int, userID int64, cacheKey string, chatType string) [][]gotgbot.InlineKeyboardButton {
 	totalTracks := len(info.Tracks)
 	start := page * 10
@@ -418,10 +455,10 @@ func buildStatelessKeyboard(info *PlaylistInfo, page int, userID int64, cacheKey
 
 	navRow := []gotgbot.InlineKeyboardButton{}
 	if page > 0 {
-		navRow = append(navRow, gotgbot.InlineKeyboardButton{Text: "◀️ Back", CallbackData: fmt.Sprintf("pg_%d_%d_%s", userID, page-1, cacheKey)})
+		navRow = append(navRow, gotgbot.InlineKeyboardButton{Text: "◀️ Back", CallbackData: fmt.Sprintf("pg#%d#%d#%s", userID, page-1, cacheKey)})
 	}
 	if end < totalTracks {
-		navRow = append(navRow, gotgbot.InlineKeyboardButton{Text: "Next ▶️", CallbackData: fmt.Sprintf("pg_%d_%d_%s", userID, page+1, cacheKey)})
+		navRow = append(navRow, gotgbot.InlineKeyboardButton{Text: "Next ▶️", CallbackData: fmt.Sprintf("pg#%d#%d#%s", userID, page+1, cacheKey)})
 	}
 	if len(navRow) > 0 {
 		keyboard = append(keyboard, navRow)
@@ -430,10 +467,10 @@ func buildStatelessKeyboard(info *PlaylistInfo, page int, userID int64, cacheKey
 	if chatType == "private" {
 		keyboard = append(keyboard, []gotgbot.InlineKeyboardButton{{
 			Text:         "⬇️ Download All",
-			CallbackData: fmt.Sprintf("dl_now_%d_%s", userID, cacheKey),
+			CallbackData: fmt.Sprintf("dl_now#%d#%s", userID, cacheKey),
 		}})
 	} else {
-		deepLink := fmt.Sprintf("https://t.me/%s?start=dl_%s", BotUsername, cacheKey)
+		deepLink := fmt.Sprintf("https://t.me/%s?start=dl-%s", BotUsername, cacheKey)
 		keyboard = append(keyboard, []gotgbot.InlineKeyboardButton{{
 			Text: "⬇️ Download All (PM)",
 			Url:  deepLink,
@@ -490,97 +527,121 @@ func HandlePlaylistCallback(b *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
-	parts := strings.Split(data, "_")
-	if len(parts) < 4 {
-		query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Invalid callback data"})
-		return nil
-	}
-
-	if parts[0] != "pg" && parts[0] != "tr" && parts[0] != "dl" {
-		return nil
-	}
-
-	var action string
-	var userID int64
-	var extra string
-	var cacheKey string
-
-	if parts[0] == "pg" {
-		if len(parts) != 5 {
-			return nil
-		}
-		action = "pg"
-		userID, _ = strconv.ParseInt(parts[1], 10, 64)
-		extra = parts[2]
-		cacheKey = parts[3] + "_" + parts[4]
-	} else if parts[0] == "tr" {
-		if len(parts) != 5 {
-			return nil
-		}
-		action = "tr"
-		userID, _ = strconv.ParseInt(parts[1], 10, 64)
-		extra = parts[2]
-		cacheKey = parts[3] + "_" + parts[4]
-	} else {
+	if strings.HasPrefix(data, "pg#") {
+		parts := strings.SplitN(data, "#", 4)
 		if len(parts) != 4 {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Invalid callback data"})
 			return nil
 		}
-		action = "dl_now"
-		userID, _ = strconv.ParseInt(parts[2], 10, 64)
-		cacheKey = parts[3]
-	}
 
-	if userID != callerID {
-		query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "You can only control your own playlists."})
-		return nil
-	}
+		userID, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Invalid user ID"})
+			return nil
+		}
 
-	info, err := getOrFetchPlaylistInfo(cacheKey)
-	if err != nil {
-		query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
-		b.DeleteMessage(chatID, messageID, nil)
-		return nil
-	}
+		if userID != callerID {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "You can only control your own playlists."})
+			return nil
+		}
 
-	if action == "pg" {
-		page, _ := strconv.Atoi(extra)
+		page, err := strconv.Atoi(parts[2])
+		if err != nil {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Invalid page number"})
+			return nil
+		}
+
+		cacheKey := parts[3]
+
+		info, err := getOrFetchPlaylistInfo(cacheKey)
+		if err != nil {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+			return nil
+		}
+
 		query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Loading page..."})
-		return sendPlaylistPageMessage(b, chatID, info, page, userID, cacheKey, messageID, chatType)
-	} else if action == "tr" {
-		idx, _ := strconv.Atoi(extra)
-		if idx < 0 || idx >= len(info.Tracks) {
-			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Track not found."})
+		return editPlaylistPageMessage(b, chatID, messageID, info, page, userID, cacheKey, chatType)
+	}
+
+	if strings.HasPrefix(data, "dl_now#") {
+		parts := strings.SplitN(data, "#", 3)
+		if len(parts) != 3 {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Invalid callback data"})
 			return nil
 		}
-		track := info.Tracks[idx]
-		query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Processing...", ShowAlert: false})
-		b.DeleteMessage(chatID, messageID, nil)
 
-		durationMin := track.Duration / 60
-		durationSec := track.Duration % 60
-		text := fmt.Sprintf("🎬 <b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d:%02d\n\n🔽 <b>Choose download format:</b>", track.Name, track.Artist, durationMin, durationSec)
-
-		keyboard := [][]gotgbot.InlineKeyboardButton{
-			{
-				{Text: "🎥 Video (MP4)", CallbackData: fmt.Sprintf("yt_video_%d_%s", userID, track.SongID)},
-				{Text: "🎵 Audio (MP3)", CallbackData: fmt.Sprintf("yt_audio_%d_%s", userID, track.SongID)},
-			},
-			{
-				{Text: "❌ Cancel", CallbackData: "cancel"},
-			},
+		userID, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Invalid user ID"})
+			return nil
 		}
-		replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
-		_, err = b.SendMessage(chatID, text, &gotgbot.SendMessageOpts{
-			ParseMode:   "HTML",
-			ReplyMarkup: replyMarkup,
-		})
-		return err
-	} else if action == "dl_now" {
+
+		if userID != callerID {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "You can only control your own playlists."})
+			return nil
+		}
+
+		cacheKey := parts[2]
+
+		info, err := getOrFetchPlaylistInfo(cacheKey)
+		if err != nil {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Something went wrong"})
+			return nil
+		}
+
 		query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Starting download of all tracks..."})
 		setUserProcessing(userID, true)
 		go downloadAllTracksToChat(b, chatID, userID, info)
 		return nil
 	}
+
+	if strings.HasPrefix(data, "stop_dl#") {
+		parts := strings.SplitN(data, "#", 2)
+		if len(parts) != 2 {
+			return nil
+		}
+
+		userID, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			return nil
+		}
+
+		if userID != callerID {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "You can only stop your own downloads."})
+			return nil
+		}
+
+		if exists, cancelChan := GetCancelChannel(userID); exists {
+			cancelChan <- true
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Stopping download..."})
+		} else {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "No active download found."})
+		}
+		return nil
+	}
+
+	if strings.HasPrefix(data, "retry#") {
+		parts := strings.SplitN(data, "#", 2)
+		if len(parts) != 2 {
+			return nil
+		}
+		failID := parts[1]
+
+		failedMutex.RLock()
+		failed, exists := failedTracks[failID]
+		failedMutex.RUnlock()
+
+		if !exists {
+			query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Download session expired."})
+			return nil
+		}
+
+		query.Answer(b, &gotgbot.AnswerCallbackQueryOpts{Text: "Retrying..."})
+		b.DeleteMessage(chatID, messageID, nil)
+		go downloadSingleTrackWithRetry(b, chatID, failed.Track, failID, failed.RetryCount)
+		return nil
+	}
+
 	return nil
 }
 
@@ -619,6 +680,9 @@ func downloadSingleTrackWithRetry(b *gotgbot.Bot, chatID int64, track PlaylistTr
 	if err != nil || len(stream.Source) == 0 {
 		if retryCount >= 2 {
 			b.SendMessage(chatID, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.SendMessageOpts{ParseMode: "HTML"})
+			failedMutex.Lock()
+			delete(failedTracks, retryID)
+			failedMutex.Unlock()
 			return
 		}
 		failID := GenerateRandomID()
@@ -631,7 +695,7 @@ func downloadSingleTrackWithRetry(b *gotgbot.Bot, chatID int64, track PlaylistTr
 		}
 		failedMutex.Unlock()
 		keyboard := [][]gotgbot.InlineKeyboardButton{{{
-			Text: "🔄 Try Again", CallbackData: fmt.Sprintf("retry_%s", failID),
+			Text: "🔄 Try Again", CallbackData: fmt.Sprintf("retry#%s", failID),
 		}}}
 		replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
 		b.SendMessage(chatID, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.SendMessageOpts{
@@ -653,6 +717,9 @@ func downloadSingleTrackWithRetry(b *gotgbot.Bot, chatID int64, track PlaylistTr
 	if err != nil {
 		if retryCount >= 2 {
 			b.SendMessage(chatID, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.SendMessageOpts{ParseMode: "HTML"})
+			failedMutex.Lock()
+			delete(failedTracks, retryID)
+			failedMutex.Unlock()
 			return
 		}
 		failID := GenerateRandomID()
@@ -665,7 +732,7 @@ func downloadSingleTrackWithRetry(b *gotgbot.Bot, chatID int64, track PlaylistTr
 		}
 		failedMutex.Unlock()
 		keyboard := [][]gotgbot.InlineKeyboardButton{{{
-			Text: "🔄 Try Again", CallbackData: fmt.Sprintf("retry_%s", failID),
+			Text: "🔄 Try Again", CallbackData: fmt.Sprintf("retry#%s", failID),
 		}}}
 		replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
 		b.SendMessage(chatID, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.SendMessageOpts{
@@ -674,6 +741,10 @@ func downloadSingleTrackWithRetry(b *gotgbot.Bot, chatID int64, track PlaylistTr
 		})
 		return
 	}
+
+	failedMutex.Lock()
+	delete(failedTracks, retryID)
+	failedMutex.Unlock()
 }
 
 func HandleDownloadAllStart(b *gotgbot.Bot, ctx *ext.Context, encodedID string) error {
@@ -690,7 +761,7 @@ func HandleDownloadAllStart(b *gotgbot.Bot, ctx *ext.Context, encodedID string) 
 		return nil
 	}
 
-	cacheKey := encodePlaylistCallback(playlistID, typ)
+	cacheKey := EncodePlaylistCallback(playlistID, typ)
 	info, err := getOrFetchPlaylistInfo(cacheKey)
 	if err != nil {
 		ctx.EffectiveMessage.Reply(b, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
@@ -722,7 +793,7 @@ func downloadAllTracksToChat(b *gotgbot.Bot, chatID int64, userID int64, info *P
 
 	stopButton := gotgbot.InlineKeyboardMarkup{
 		InlineKeyboard: [][]gotgbot.InlineKeyboardButton{{
-			{Text: "🛑 Stop Download", CallbackData: fmt.Sprintf("stop_dl_%d", userID)},
+			{Text: "🛑 Stop Download", CallbackData: fmt.Sprintf("stop_dl#%d", userID)},
 		}},
 	}
 	statusMsg, err := b.SendMessage(chatID, fmt.Sprintf("⬇️ Downloading %d tracks...\n\nProgress: 0/%d\n✅ Success: 0\n❌ Failed: 0", total, total), &gotgbot.SendMessageOpts{
@@ -798,7 +869,7 @@ func downloadAllTracksToChat(b *gotgbot.Bot, chatID int64, userID int64, info *P
 		}
 		failedMutex.Unlock()
 		keyboard := [][]gotgbot.InlineKeyboardButton{{{
-			Text: "🔄 Try Again", CallbackData: fmt.Sprintf("retry_%s", failID),
+			Text: "🔄 Try Again", CallbackData: fmt.Sprintf("retry#%s", failID),
 		}}}
 		replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
 		b.SendMessage(chatID, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", &gotgbot.SendMessageOpts{

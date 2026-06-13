@@ -22,8 +22,8 @@ func Start(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	command := strings.Split(strings.Replace(message.Text, "/", "", 1), " ")
 
-	if len(command) == 2 && strings.HasPrefix(command[1], "dl_") {
-		token := strings.TrimPrefix(command[1], "dl_")
+	if len(command) == 2 && strings.HasPrefix(command[1], "dl-") {
+		token := strings.TrimPrefix(command[1], "dl-")
 		return utils.HandleDownloadAllStart(b, ctx, token)
 	}
 

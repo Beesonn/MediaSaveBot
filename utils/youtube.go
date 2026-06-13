@@ -100,7 +100,7 @@ func GetYoutubeStream(rawURL string) (*YoutubeStream, error) {
 
 	for _, source := range stream.Source {
 		if source.Type == "video" {
-			if strings.Contains(source.Quality, "720p") {
+			if strings.Contains(source.Quality, "360p") {
 				selectedVideoURL = source.URL
 				break
 			}
@@ -199,39 +199,40 @@ func HandleYoutube(b *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
-	return handleYoutubeVideo(b, ctx, rawURL, userID, chatID, info.ID)
-}
-
-func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, chatID int64, videoID string) error {
-	statusMsg, err := ctx.EffectiveMessage.Reply(b, "🎬 Processing YouTube video...", nil)
-	if err != nil {
-		return err
-	}
-
-	stream, err := GetYoutubeStream(url)
-	if err != nil {
-		statusMsg.Delete(b, nil)
-		ctx.EffectiveMessage.Reply(b, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
+	// Check if video exists in info
+	if len(info.Videos) == 0 {
+		ctx.EffectiveMessage.Reply(b, "❌ Could not fetch video info. Please try again.", nil)
 		return nil
 	}
 
-	if stream.Duration > 900 {
-		statusMsg.Delete(b, nil)
+	video := info.Videos[0]
+
+	// Check duration if available
+	if video.Duration > 900 {
 		ctx.EffectiveMessage.Reply(b, "❌ Videos longer than 15 minutes are not allowed due to Telegram file size limits.", nil)
 		return nil
 	}
 
-	statusMsg.Delete(b, nil)
+	return handleYoutubeVideo(b, ctx, info, userID, chatID)
+}
 
-	durationMin := stream.Duration / 60
-	durationSec := stream.Duration % 60
+func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, info *YoutubeInfo, userID, chatID int64) error {
+	if len(info.Videos) == 0 {
+		ctx.EffectiveMessage.Reply(b, "❌ No video found.", nil)
+		return nil
+	}
 
-	text := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d\n\n🔽 <b>Choose download format:</b>", stream.Title, durationMin, durationSec)
+	video := info.Videos[0]
+	durationMin := video.Duration / 60
+	durationSec := video.Duration % 60
+
+	text := fmt.Sprintf("🎬 <b>%s</b>\n\n⏱️ <b>Duration:</b> %d:%02d\n\n🔽 <b>Choose download format:</b>",
+		info.Name, durationMin, durationSec)
 
 	keyboard := [][]gotgbot.InlineKeyboardButton{
 		{
-			{Text: "🎥 Video MP4", CallbackData: fmt.Sprintf("yt#%d#%s#video", userID, videoID)},
-			{Text: "🎵 Audio MP3", CallbackData: fmt.Sprintf("yt#%d#%s#audio", userID, videoID)},
+			{Text: "🎥 Video MP4", CallbackData: fmt.Sprintf("yt#%d#%s#video", userID, info.ID)},
+			{Text: "🎵 Audio MP3", CallbackData: fmt.Sprintf("yt#%d#%s#audio", userID, info.ID)},
 		},
 		{
 			{Text: "❌ Cancel", CallbackData: "cancel"},
@@ -240,7 +241,7 @@ func handleYoutubeVideo(b *gotgbot.Bot, ctx *ext.Context, url string, userID, ch
 
 	replyMarkup := gotgbot.InlineKeyboardMarkup{InlineKeyboard: keyboard}
 
-	_, err = ctx.EffectiveMessage.Reply(b, text, &gotgbot.SendMessageOpts{
+	_, err := ctx.EffectiveMessage.Reply(b, text, &gotgbot.SendMessageOpts{
 		ParseMode:   "HTML",
 		ReplyMarkup: replyMarkup,
 	})
