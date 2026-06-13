@@ -101,6 +101,9 @@ Usage: <code>/donate 100</code>`
 
 	keyboard := [][]gotgbot.InlineKeyboardButton{
 		{
+			{Text: "➕ Add me to your group", Url: fmt.Sprintf("https://t.me/%s?startgroup=true", b.User.Username)},
+		},
+		{
 			{Text: "🔍 Inline Search", SwitchInlineQueryCurrentChat: &[]string{""}[0]},
 		},
 		{
