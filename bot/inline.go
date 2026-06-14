@@ -196,7 +196,7 @@ func handleYoutubeInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url s
 }
 
 func handleInstagramInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url string) error {
-	sources, caption, err := utils.GetInstagramMedia(url)
+	sources, caption, thumbnail, err := utils.GetInstagramMedia(url)
 	if err != nil || len(sources) == 0 {
 		results := []gotgbot.InlineQueryResult{
 			&gotgbot.InlineQueryResultArticle{
@@ -219,18 +219,20 @@ func handleInstagramInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url
 		id := generateUUID()
 		if source.Type == "video" {
 			result := &gotgbot.InlineQueryResultVideo{
-				Id:       id,
-				VideoUrl: source.URL,
-				MimeType: "video/mp4",
-				Title:    "Instagram Video",
-				Caption:  caption,
+				Id:           id,
+				VideoUrl:     source.URL,
+				MimeType:     "video/mp4",
+				Title:        "Instagram Video",
+				Caption:      caption,
+				ThumbnailUrl: thumbnail,
 			}
 			results = append(results, result)
 		} else {
 			result := &gotgbot.InlineQueryResultPhoto{
-				Id:       id,
-				PhotoUrl: source.URL,
-				Caption:  caption,
+				Id:           id,
+				PhotoUrl:     source.URL,
+				Caption:      caption,
+				ThumbnailUrl: thumbnail,
 			}
 			results = append(results, result)
 		}
@@ -244,7 +246,7 @@ func handleInstagramInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url
 }
 
 func handlePinterestInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url string) error {
-	sources, title, err := utils.GetPinterestMedia(url)
+	sources, title, thumbnail, err := utils.GetPinterestMedia(url)
 	if err != nil || len(sources) == 0 {
 		results := []gotgbot.InlineQueryResult{
 			&gotgbot.InlineQueryResultArticle{
@@ -267,18 +269,20 @@ func handlePinterestInline(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, url
 		id := generateUUID()
 		if source.Type == "video" {
 			result := &gotgbot.InlineQueryResultVideo{
-				Id:       id,
-				VideoUrl: source.URL,
-				MimeType: "video/mp4",
-				Title:    "Pinterest Video",
-				Caption:  title,
+				Id:           id,
+				VideoUrl:     source.URL,
+				MimeType:     "video/mp4",
+				Title:        "Pinterest Video",
+				Caption:      title,
+				ThumbnailUrl: thumbnail,
 			}
 			results = append(results, result)
 		} else {
 			result := &gotgbot.InlineQueryResultPhoto{
-				Id:       id,
-				PhotoUrl: source.URL,
-				Caption:  title,
+				Id:           id,
+				PhotoUrl:     source.URL,
+				Caption:      title,
+				ThumbnailUrl: thumbnail,
 			}
 			results = append(results, result)
 		}

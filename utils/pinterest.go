@@ -7,14 +7,14 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 )
 
-func GetPinterestMedia(url string) ([]providers.PinSource, string, error) {
+func GetPinterestMedia(url string) ([]providers.PinSource, string, string, error) {
 	client := dlkitgo.NewClient()
 	stream, err := client.Pinterest.Stream(url)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 
-	return stream.Source, stream.Title, nil
+	return stream.Source, stream.Title, stream.Thumbnail, nil
 }
 
 func HandlePinterest(b *gotgbot.Bot, ctx *ext.Context) error {
@@ -31,7 +31,7 @@ func HandlePinterest(b *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 
-	sources, title, err := GetPinterestMedia(url)
+	sources, title, _, err := GetPinterestMedia(url)
 	if err != nil {
 		statusMsg.Delete(b, nil)
 		ctx.EffectiveMessage.Reply(b, "❌ Something went wrong. Please try again or contact our support group @XBOTSUPPORTS", nil)
@@ -46,8 +46,27 @@ func HandlePinterest(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	statusMsg.Delete(b, nil)
 
-	media := make([]gotgbot.InputMedia, 0)
+	if len(sources) == 1 {
+		source := sources[0]
+		if source.Type == "video" {
+			_, err = b.SendVideo(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), &gotgbot.SendVideoOpts{
+				Caption: title,
+				ReplyParameters: &gotgbot.ReplyParameters{
+					MessageId: ctx.EffectiveMessage.MessageId,
+				},
+			})
+		} else {
+			_, err = b.SendPhoto(ctx.EffectiveChat.Id, gotgbot.InputFileByURL(source.URL), &gotgbot.SendPhotoOpts{
+				Caption: title,
+				ReplyParameters: &gotgbot.ReplyParameters{
+					MessageId: ctx.EffectiveMessage.MessageId,
+				},
+			})
+		}
+		return err
+	}
 
+	media := make([]gotgbot.InputMedia, 0)
 	for _, source := range sources {
 		if source.Type == "video" {
 			media = append(media, gotgbot.InputMediaVideo{
