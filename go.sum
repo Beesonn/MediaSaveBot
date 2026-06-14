@@ -20,6 +20,8 @@ github.com/Beesonn/dlkitgo v1.3.5 h1:H3xd84l4XYCiORWRQ9wqCEvjvz8DCyYPwQ579JPd6bk
 github.com/Beesonn/dlkitgo v1.3.5/go.mod h1:uDlptTueZ2WvAyNKxT2g798PsSEM60xZ5V0kExADYWQ=
 github.com/Beesonn/dlkitgo v1.3.6-0.20260614110845-829bf16ed675 h1:41AhjGeZhFhZIr/eg9r2Q6GRTuqZjXp6UWd3oU/wT7Q=
 github.com/Beesonn/dlkitgo v1.3.6-0.20260614110845-829bf16ed675/go.mod h1:uDlptTueZ2WvAyNKxT2g798PsSEM60xZ5V0kExADYWQ=
+github.com/Beesonn/dlkitgo v1.3.6-0.20260614123032-026993708ce7 h1:mkU3nQGWWbWQeOd1ZVsPOaLh0HJoPS6sdAHlHNR6jRg=
+github.com/Beesonn/dlkitgo v1.3.6-0.20260614123032-026993708ce7/go.mod h1:uDlptTueZ2WvAyNKxT2g798PsSEM60xZ5V0kExADYWQ=
 github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.35 h1:THWaG6urv7EnopMeQcIdA5gOuDbtmRWDMpTBUIJRxk0=
 github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.35/go.mod h1:yrKnA/812p/Vh84TYQMz36/8SNLF7OOdTmKFr5i7W7g=
 github.com/PuerkitoBio/goquery v1.12.0 h1:pAcL4g3WRXekcB9AU/y1mbKez2dbY2AajVhtkO8RIBo=
