@@ -469,13 +469,22 @@ func handleSongInlineFast(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, quer
 		return err
 	}
 
-	results := make([]gotgbot.InlineQueryResult, 0)
-	var wg sync.WaitGroup
-	var mu sync.Mutex
+	maxResults := 5
+	if len(searchResults) > maxResults {
+		searchResults = searchResults[:maxResults]
+	}
 
-	for _, track := range searchResults {
+	type resultItem struct {
+		index  int
+		result *gotgbot.InlineQueryResultAudio
+	}
+
+	resultChan := make(chan resultItem, len(searchResults))
+	var wg sync.WaitGroup
+
+	for idx, track := range searchResults {
 		wg.Add(1)
-		go func(trackID, trackName, trackArtist string, trackDuration int) {
+		go func(index int, trackID, trackName, trackArtist string, trackDuration int) {
 			defer wg.Done()
 
 			trackURL := fmt.Sprintf("https://open.spotify.com/track/%s", trackID)
@@ -491,17 +500,31 @@ func handleSongInlineFast(b *gotgbot.Bot, inlineQuery *gotgbot.InlineQuery, quer
 				Title:         source.Title,
 				Performer:     source.Artist,
 				AudioDuration: int64(source.Duration),
-				Caption:       fmt.Sprintf("<b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d seconds", utils.EscapeHTML(source.Title), utils.EscapeHTML(source.Artist), source.Duration),
-				ParseMode:     "HTML",
+				Caption: fmt.Sprintf("<b>%s</b>\n\n🎤 <b>Artist:</b> %s\n⏱️ <b>Duration:</b> %d seconds",
+					utils.EscapeHTML(source.Title), utils.EscapeHTML(source.Artist), source.Duration),
+				ParseMode: "HTML",
 			}
 
-			mu.Lock()
-			results = append(results, result)
-			mu.Unlock()
-		}(track.ID, track.Name, track.Artists, track.Duration)
+			resultChan <- resultItem{index: index, result: result}
+		}(idx, track.ID, track.Name, track.Artists, track.Duration)
 	}
 
-	wg.Wait()
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	orderedResults := make([]*gotgbot.InlineQueryResultAudio, len(searchResults))
+	for item := range resultChan {
+		orderedResults[item.index] = item.result
+	}
+
+	results := make([]gotgbot.InlineQueryResult, 0)
+	for _, res := range orderedResults {
+		if res != nil {
+			results = append(results, res)
+		}
+	}
 
 	if len(results) == 0 {
 		results := []gotgbot.InlineQueryResult{
