@@ -68,7 +68,10 @@ and more!
 Usage: <code>/song song name</code>
 
 /donate - Support the bot with Telegram Stars
-Usage: <code>/donate 100</code>`, botFullName)
+Usage: <code>/donate 100</code>
+
+/privacy - View our privacy policy
+/terms - View our terms of service`, botFullName)
 	} else {
 		text = `Hello! 👋
 
@@ -87,7 +90,10 @@ and more!
 Usage: <code>/song song name</code>
 
 /donate - Support the bot with Telegram Stars
-Usage: <code>/donate 100</code>`
+Usage: <code>/donate 100</code>
+
+/privacy - View our privacy policy
+/terms - View our terms of service`
 	}
 
 	if database.IsMongoAvailable() && isAdmin(user.Id) && utils.BotUsername == b.User.Username {
@@ -196,7 +202,7 @@ func Privacy(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	text := `<b>🔒 Privacy Policy</b>
 
-<b>Last Updated: June 16, 2026</b>
+<b>Last Updated: June 20, 2026</b>
 
 <b>1. Information We Collect</b>
 We collect only:
@@ -241,7 +247,6 @@ GitHub: https://github.com/Beesonn/MediaSaveBot
 This policy may be updated. Users will be notified of changes.
 
 <b>✅ By using this bot, you agree to this privacy policy.</b>`
-
 	if chat.Type != "private" {
 		_, err := b.SendMessage(ctx.EffectiveUser.Id, text, &gotgbot.SendMessageOpts{
 			ParseMode: "HTML",
@@ -268,49 +273,49 @@ func Terms(b *gotgbot.Bot, ctx *ext.Context) error {
 
 	text := `<b>📋 Terms of Service</b>
 
-<b>Last Updated: June 16, 2026</b>
+<b>Last Updated: June 20, 2026</b>
 
 <b>1. Educational Purpose</b>
 This bot is for educational and demonstration purposes only.
 
 <b>2. Copyright Notice</b>
-You can download songs and content that may be copyright protected.
+You can download songs and content that may be protected by copyright.
 These songs are for your personal enjoyment and listening pleasure only.
 You do NOT own the rights to these songs.
 Please respect the original artists and copyright holders.
 
 <b>3. Disclaimer</b>
-• We do NOT host or store any content
-• Content is from third-party providers
+• We do NOT host or store any content on our servers
+• All content is from third-party providers
 • We do NOT claim ownership of any content
 
 <b>4. Instagram</b>
-• Content belongs to original creators
-• Do NOT repost or claim as your own
+• Content belongs to the original creators
+• Do NOT repost or claim it as your own
 • Respect Instagram's Terms of Service
-• Give credit to original creator
+• Always give credit to the original creator
 
 <b>5. Pinterest</b>
-• Content belongs to original creators
-• Do NOT repost or claim as your own
+• Content belongs to the original creators
+• Do NOT repost or claim it as your own
 • Respect Pinterest's Terms of Service
-• Give credit to original creator
+• Always give credit to the original creator
 
 <b>6. YouTube</b>
-• Content belongs to original creators
-• Do NOT repost or claim as your own
+• Content belongs to the original creators
+• Do NOT repost or claim it as your own
 • Respect YouTube's Terms of Service
-• Do NOT download videos longer than 15 minutes
+• Videos longer than 15 minutes cannot be downloaded due to Telegram file size limits
 • For personal use only
 
 <b>7. Spotify</b>
-• Content belongs to artists and labels
+• Content belongs to the artists and record labels
 • Do NOT redistribute downloaded music
 • Respect Spotify's Terms of Service
 • For personal listening only
 
 <b>8. Permitted Use</b>
-You may use content for personal use:
+You may use content for personal purposes including:
 • Instagram Stories (with credit)
 • Instagram Reels (with credit)
 • YouTube Shorts (with credit)
@@ -324,7 +329,7 @@ You may use content for personal use:
 ❌ Claiming ownership
 ❌ Redistributing content
 ❌ Monetizing content
-❌ Using without credit
+❌ Using content without proper credit
 ❌ Harassing or bullying others
 
 <b>10. Liability</b>
@@ -332,27 +337,27 @@ You may use content for personal use:
 • Copyright infringement by users
 • Misuse of downloaded content
 • Legal consequences
-• Damages or losses
+• Any damages or losses
 • Third-party content quality
 • Service interruptions
 • User actions on social media
 
 <b>11. User Responsibility</b>
-• You are responsible for how you use content
-• You must have rights to use content
-• You accept legal consequences
-• You comply with all laws
+• You are responsible for how you use the content
+• You must have the rights to use the content
+• You accept all legal consequences
+• You agree to comply with all laws
 
 <b>12. Legal Notice</b>
-Users are responsible for their actions. We assume NO LIABILITY for misuse or legal consequences.
+Users are fully responsible for their actions. We assume NO LIABILITY for any misuse or legal consequences.
 
 <b>13. Acceptance</b>
 <b>BY USING THIS BOT, YOU AGREE TO:</b>
 ✅ Use content for personal enjoyment only
 ✅ Respect copyright laws
-✅ Accept full responsibility
+✅ Accept full responsibility for your actions
 ✅ Use the bot at your own risk
-✅ Give credit to original creators
+✅ Give proper credit to original creators
 
 <b>14. Contact</b>
 Support: @XBOTSUPPORTS
@@ -363,7 +368,6 @@ GitHub: https://github.com/Beesonn/MediaSaveBot
 These terms may be updated. Users will be notified of changes.
 
 <b>Thank you for using our bot responsibly! 🙏</b>`
-
 	if chat.Type != "private" {
 		_, err := b.SendMessage(ctx.EffectiveUser.Id, text, &gotgbot.SendMessageOpts{
 			ParseMode: "HTML",
