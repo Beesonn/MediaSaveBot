@@ -190,6 +190,200 @@ func Donate(b *gotgbot.Bot, ctx *ext.Context) error {
 	return err
 }
 
+func Privacy(b *gotgbot.Bot, ctx *ext.Context) error {
+	chat := ctx.EffectiveChat
+	message := ctx.EffectiveMessage
+
+	text := `<b>🔒 Privacy Policy</b>
+
+<b>Last Updated: June 16, 2026</b>
+
+<b>1. Information We Collect</b>
+We collect only:
+• Telegram User ID
+• First Name
+
+<b>2. How We Use Your Information</b>
+Your information is used for:
+• Sending broadcast messages about bot updates and maintenance
+• Improving user experience
+• Providing bot services
+
+<b>3. Data Storage and Security</b>
+• Your data is securely stored in our encrypted database
+• Your data is never sold, traded, or shared with third parties
+
+<b>4. Data Sharing</b>
+We do NOT share your information with anyone.
+
+<b>5. Open Source</b>
+This project is completely open source:
+https://github.com/Beesonn/MediaSaveBot
+
+<b>6. Official Bot</b>
+The official bot is: @MediaSavingsBot
+
+<b>⚠️ IMPORTANT</b>
+If you are using another bot, it is a cloned bot. We cannot guarantee your privacy or security.
+
+<b>7. Create Your Own Bot</b>
+Create a bot from @BotFather and send the token to us to get your own bot.
+
+<b>8. Family Friendly</b>
+This bot is safe for all ages. No NSFW or adult content.
+
+<b>9. Contact</b>
+Support: @XBOTSUPPORTS
+Updates: @BeesonsBots
+GitHub: https://github.com/Beesonn/MediaSaveBot
+
+<b>10. Policy Updates</b>
+This policy may be updated. Users will be notified of changes.
+
+<b>✅ By using this bot, you agree to this privacy policy.</b>`
+
+	if chat.Type != "private" {
+		_, err := b.SendMessage(ctx.EffectiveUser.Id, text, &gotgbot.SendMessageOpts{
+			ParseMode: "HTML",
+		})
+		if err != nil {
+			_, err = message.Reply(b, "📋 Please check your private messages for the privacy policy.", nil)
+			return err
+		}
+
+		_, err = message.Reply(b, "📋 Privacy policy has been sent to your private messages.", nil)
+		return err
+	}
+
+	_, err := ctx.EffectiveMessage.Reply(b, text, &gotgbot.SendMessageOpts{
+		ParseMode: "HTML",
+	})
+
+	return err
+}
+
+func Terms(b *gotgbot.Bot, ctx *ext.Context) error {
+	chat := ctx.EffectiveChat
+	message := ctx.EffectiveMessage
+
+	text := `<b>📋 Terms of Service</b>
+
+<b>Last Updated: June 16, 2026</b>
+
+<b>1. Educational Purpose</b>
+This bot is for educational and demonstration purposes only.
+
+<b>2. Copyright Notice</b>
+You can download songs and content that may be copyright protected.
+These songs are for your personal enjoyment and listening pleasure only.
+You do NOT own the rights to these songs.
+Please respect the original artists and copyright holders.
+
+<b>3. Disclaimer</b>
+• We do NOT host or store any content
+• Content is from third-party providers
+• We do NOT claim ownership of any content
+
+<b>4. Instagram</b>
+• Content belongs to original creators
+• Do NOT repost or claim as your own
+• Respect Instagram's Terms of Service
+• Give credit to original creator
+
+<b>5. Pinterest</b>
+• Content belongs to original creators
+• Do NOT repost or claim as your own
+• Respect Pinterest's Terms of Service
+• Give credit to original creator
+
+<b>6. YouTube</b>
+• Content belongs to original creators
+• Do NOT repost or claim as your own
+• Respect YouTube's Terms of Service
+• Do NOT download videos longer than 15 minutes
+• For personal use only
+
+<b>7. Spotify</b>
+• Content belongs to artists and labels
+• Do NOT redistribute downloaded music
+• Respect Spotify's Terms of Service
+• For personal listening only
+
+<b>8. Permitted Use</b>
+You may use content for personal use:
+• Instagram Stories (with credit)
+• Instagram Reels (with credit)
+• YouTube Shorts (with credit)
+• TikTok Videos (with credit)
+• Personal video editing
+• Personal creative projects
+• Personal enjoyment and listening
+
+<b>9. Prohibited Use</b>
+❌ Commercial use
+❌ Claiming ownership
+❌ Redistributing content
+❌ Monetizing content
+❌ Using without credit
+❌ Harassing or bullying others
+
+<b>10. Liability</b>
+<b>WE ARE NOT RESPONSIBLE FOR:</b>
+• Copyright infringement by users
+• Misuse of downloaded content
+• Legal consequences
+• Damages or losses
+• Third-party content quality
+• Service interruptions
+• User actions on social media
+
+<b>11. User Responsibility</b>
+• You are responsible for how you use content
+• You must have rights to use content
+• You accept legal consequences
+• You comply with all laws
+
+<b>12. Legal Notice</b>
+Users are responsible for their actions. We assume NO LIABILITY for misuse or legal consequences.
+
+<b>13. Acceptance</b>
+<b>BY USING THIS BOT, YOU AGREE TO:</b>
+✅ Use content for personal enjoyment only
+✅ Respect copyright laws
+✅ Accept full responsibility
+✅ Use the bot at your own risk
+✅ Give credit to original creators
+
+<b>14. Contact</b>
+Support: @XBOTSUPPORTS
+Updates: @BeesonsBots
+GitHub: https://github.com/Beesonn/MediaSaveBot
+
+<b>15. Updates</b>
+These terms may be updated. Users will be notified of changes.
+
+<b>Thank you for using our bot responsibly! 🙏</b>`
+
+	if chat.Type != "private" {
+		_, err := b.SendMessage(ctx.EffectiveUser.Id, text, &gotgbot.SendMessageOpts{
+			ParseMode: "HTML",
+		})
+		if err != nil {
+			_, err = message.Reply(b, "📋 Please check your private messages for the Terms of Service.", nil)
+			return err
+		}
+
+		_, err = message.Reply(b, "📋 Terms of Service has been sent to your private messages.", nil)
+		return err
+	}
+
+	_, err := ctx.EffectiveMessage.Reply(b, text, &gotgbot.SendMessageOpts{
+		ParseMode: "HTML",
+	})
+
+	return err
+}
+
 func HandleCreateBotCallback(b *gotgbot.Bot, ctx *ext.Context) error {
 	query := ctx.Update.CallbackQuery
 	if query == nil {
